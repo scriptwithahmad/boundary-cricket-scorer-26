@@ -1,0 +1,25 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "customConditions": [
+      "react-native",
+      "react-native-legacy-deep-imports"
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@react-navigation/*": [
+        "./node_modules/expo-router/build/react-navigation/*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts",
+    "nativewind-env.d.ts"
+  ]
+}
