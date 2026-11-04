@@ -82,12 +82,14 @@ export function Tap({
   style,
   disabled,
   quiet,
+  hapticEnabled = true,
   scaleTo = 0.96,
   ...rest
 }: Omit<PressableProps, 'style' | 'children'> & {
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
   quiet?: boolean;
+  hapticEnabled?: boolean;
   scaleTo?: number;
 }) {
   const s = useSharedValue(1);
@@ -103,7 +105,7 @@ export function Tap({
         s.value = withSpring(1, { damping: 14, stiffness: 260 });
       }}
       onPress={(e) => {
-        if (!quiet) haptic.tap();
+        if (!quiet && hapticEnabled) haptic.tap();
         onPress?.(e);
       }}
       style={[style, a] as any}
@@ -212,12 +214,12 @@ export function Card({
   const base: ViewStyle = {
     backgroundColor: colors.surface,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 16,
-    ...(isDark
-      ? {}
-      : { shadowColor: '#2B3A2E', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2 }),
+    shadowColor: isDark ? '#000000' : '#2B3A2E',
+    shadowOpacity: isDark ? 0.2 : 0.07,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: isDark ? 3 : 2,
   };
   const entering = index !== undefined ? FadeInDown.delay(Math.min(index, 8) * 50).duration(320) : undefined;
   if (onPress) {
@@ -341,18 +343,20 @@ export function Chip({
   onPress,
   icon: Icon,
   disabled,
-  tint,
+  selectedBackgroundColor,
+  selectedTextColor,
 }: {
   label: string;
   selected?: boolean;
   onPress?: () => void;
   icon?: LucideIcon;
   disabled?: boolean;
-  tint?: string;
+  selectedBackgroundColor?: string;
+  selectedTextColor?: string;
 }) {
   const { colors } = useTheme();
-  const bg = selected ? tint ?? colors.primary : colors.surfaceAlt;
-  const fg = selected ? (tint ? '#08130D' : colors.onPrimary) : colors.textMuted;
+  const bg = selected ? selectedBackgroundColor ?? colors.primarySoft : colors.surfaceAlt;
+  const fg = selected ? selectedTextColor ?? colors.primary : colors.textMuted;
   return (
     <Tap
       onPress={onPress}
@@ -401,12 +405,10 @@ export function Segmented<T extends string>({
               borderRadius: radius.pill,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: active ? colors.surface : 'transparent',
-              borderWidth: active ? 1 : 0,
-              borderColor: colors.border,
+              backgroundColor: active ? colors.primarySoft : 'transparent',
             }}
           >
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: active ? colors.text : colors.textMuted }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 14, color: active ? colors.primary : colors.textMuted }}>
               {o.label}
             </Text>
           </Tap>
@@ -718,7 +720,7 @@ export function PlayerRow({
     >
       <Avatar name={name} color={color} size={40} />
       <View style={{ flex: 1 }}>
-        <AppText variant="bodyStrong" numberOfLines={1}>
+        <AppText variant="bodyStrong" numberOfLines={1} color="text">
           {name}
         </AppText>
         {sub ? (

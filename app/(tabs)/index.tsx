@@ -1,22 +1,79 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { ArrowLeftRight, ChevronRight, Moon, Play, Plus, Sun, Swords, Zap, Flag } from 'lucide-react-native';
-import { AppText, Button, Card, ConfirmSheet, IconButton, Screen, SectionHeader, Segmented, Tap } from '@/src/components/ui';
+import { ArrowLeftRight, ChevronRight, Play, Plus, Settings, Swords, Zap, Flag } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppText, Button, Card, IconButton, Screen, SectionHeader, Tap } from '@/src/components/ui';
 import { MatchCard } from '@/src/components/MatchCard';
+import { WelcomeCarousel } from '@/src/components/WelcomeCarousel';
 import { useStore } from '@/src/store';
-import { fonts, ThemeMode, useTheme } from '@/src/theme';
+import { fonts, useTheme } from '@/src/theme';
+import { createTabBarStyle } from '@/src/theme/tabBar';
 import { currentInnings, oversText, teamScore, totals } from '@/src/engine/cricket';
+
+const WELCOME_KEY = 'boundary:welcome-complete';
 
 export default function Home() {
   const router = useRouter();
-  const { colors, isDark, mode, setMode } = useTheme();
+  const navigation = useNavigation();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const store = useStore();
-  const [confirmReset, setConfirmReset] = useState(false);
+  const [welcomeStatus, setWelcomeStatus] = useState<'loading' | 'welcome' | 'home'>('loading');
+  const [welcomeError, setWelcomeError] = useState<string | null>(null);
   const live = store.matches.find((m) => m.status === 'live');
   const done = store.matches.filter((m) => m.status === 'completed').slice(0, 3);
+
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(WELCOME_KEY)
+      .then((value) => {
+        if (active) setWelcomeStatus(value === 'true' ? 'home' : 'welcome');
+      })
+      .catch(() => {
+        if (active) {
+          setWelcomeError('We could not save your welcome preference. It may show again next time.');
+          setWelcomeStatus('welcome');
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    navigation.setOptions({
+      tabBarStyle: welcomeStatus === 'home'
+        ? createTabBarStyle(colors, insets.bottom)
+        : { display: 'none' },
+    });
+  }, [colors, insets.bottom, navigation, welcomeStatus]);
+
+  const finishWelcome = async () => {
+    try {
+      await AsyncStorage.setItem(WELCOME_KEY, 'true');
+      setWelcomeError(null);
+      setWelcomeStatus('home');
+    } catch {
+      setWelcomeError('We could not save your welcome preference. Continue anyway, or try again.');
+    }
+  };
+
+  if (welcomeStatus === 'loading') {
+    return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+  }
+  if (welcomeStatus === 'welcome') {
+    return (
+      <WelcomeCarousel
+        onComplete={finishWelcome}
+        onContinueWithoutSaving={() => setWelcomeStatus('home')}
+        storageError={welcomeError}
+      />
+    );
+  }
 
   const startMatch = (format: string) => router.push(`/match/new?format=${format}` as any);
 
@@ -29,11 +86,7 @@ export default function Home() {
           </AppText>
           <AppText variant="display">Boundary</AppText>
         </View>
-        <IconButton
-          icon={isDark ? Sun : Moon}
-          label="Toggle theme"
-          onPress={() => setMode(isDark ? 'light' : 'dark')}
-        />
+        <IconButton icon={Settings} label="Settings" onPress={() => router.push('/settings' as any)} />
       </Animated.View>
 
       {/* Hero */}
@@ -81,7 +134,7 @@ export default function Home() {
               <AppText variant="label" color={colors.onHeroMuted}>
                 Ready when you are
               </AppText>
-              <AppText variant="title" color={colors.onHero} style={{ fontSize: 28, lineHeight: 33, maxWidth: 260 }}>
+              <AppText variant="title" color={colors.onHero} style={{ fontSize: 27, lineHeight: 33, maxWidth: 260 }}>
                 Score every ball, from the nets to the final.
               </AppText>
               <Tap onPress={() => startMatch('T20')} style={styles.heroBtn}>
@@ -168,34 +221,6 @@ export default function Home() {
         </Card>
       )}
 
-      <SectionHeader title="Appearance" />
-      <Segmented<ThemeMode>
-        value={mode}
-        onChange={setMode}
-        options={[
-          { label: 'System', value: 'system' },
-          { label: 'Light', value: 'light' },
-          { label: 'Dark', value: 'dark' },
-        ]}
-      />
-      <View style={{ marginTop: 24, alignItems: 'center' }}>
-        <Tap onPress={() => setConfirmReset(true)} style={{ padding: 12 }}>
-          <AppText variant="caption" color="textFaint">
-            Erase all data
-          </AppText>
-        </Tap>
-      </View>
-      <ConfirmSheet
-        visible={confirmReset}
-        title="Erase all data?"
-        message="All teams, players, matches and statistics stored on this device will be deleted permanently."
-        confirmLabel="Erase everything"
-        onCancel={() => setConfirmReset(false)}
-        onConfirm={() => {
-          store.resetAll();
-          setConfirmReset(false);
-        }}
-      />
     </Screen>
   );
 }

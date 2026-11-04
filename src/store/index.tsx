@@ -10,6 +10,7 @@ import {
   createMatch as buildMatch,
   endInnings,
   setCrease,
+  setPlayerOfMatch as choosePlayerOfMatch,
   startNextInnings,
   swapStrike,
   uid,
@@ -18,9 +19,21 @@ import {
 import { darkColors } from '../theme';
 
 const KEY = 'boundary:data:v1';
+const PREFERENCES_KEY = 'boundary:preferences:v1';
+
+interface AppPreferences {
+  keepScreenAwake: boolean;
+  hapticVibration: boolean;
+}
+
+const defaultPreferences: AppPreferences = { keepScreenAwake: false, hapticVibration: true };
 
 interface StoreApi extends AppData {
   careers: Record<string, Career>;
+  keepScreenAwake: boolean;
+  hapticVibration: boolean;
+  setKeepScreenAwake: (enabled: boolean) => void;
+  setHapticVibration: (enabled: boolean) => void;
   addTeam: (name: string, short: string, color: string) => Team;
   updateTeam: (id: string, patch: Partial<Pick<Team, 'name' | 'short' | 'color'>>) => void;
   deleteTeam: (id: string) => void;
@@ -35,7 +48,9 @@ interface StoreApi extends AppData {
   swapStrike: (matchId: string) => void;
   nextInnings: (matchId: string) => void;
   endInnings: (matchId: string) => void;
+  setPlayerOfMatch: (matchId: string, playerId: string) => void;
   deleteMatch: (matchId: string) => void;
+  replaceData: (data: AppData) => void;
   resetAll: () => void;
 }
 
@@ -95,6 +110,8 @@ const DEMO: { name: string; short: string; color: string; players: [string, Role
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(empty);
   const [ready, setReady] = useState(false);
+  const [preferences, setPreferences] = useState(defaultPreferences);
+  const [preferencesReady, setPreferencesReady] = useState(false);
   const ref = useRef(data);
   ref.current = data;
 
@@ -112,6 +129,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    AsyncStorage.getItem(PREFERENCES_KEY)
+      .then((raw) => {
+        if (!raw) return;
+        try {
+          const parsed: unknown = JSON.parse(raw);
+          if (typeof parsed !== 'object' || parsed === null) return;
+          const saved = parsed as Partial<AppPreferences>;
+          setPreferences({
+            keepScreenAwake: typeof saved.keepScreenAwake === 'boolean' ? saved.keepScreenAwake : false,
+            hapticVibration: typeof saved.hapticVibration === 'boolean' ? saved.hapticVibration : true,
+          });
+        } catch {}
+      })
+      .catch(() => {})
+      .finally(() => setPreferencesReady(true));
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesReady) return;
+    AsyncStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences)).catch(() => {});
+  }, [preferences, preferencesReady]);
+
+  useEffect(() => {
     if (!ready) return;
     const t = setTimeout(() => {
       AsyncStorage.setItem(KEY, JSON.stringify(data)).catch(() => {});
@@ -127,6 +167,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return {
       ...data,
       careers,
+      ...preferences,
+      setKeepScreenAwake: (enabled) => setPreferences((current) => ({ ...current, keepScreenAwake: enabled })),
+      setHapticVibration: (enabled) => setPreferences((current) => ({ ...current, hapticVibration: enabled })),
       addTeam: (name, short, color) => {
         const team: Team = { id: uid(), name: name.trim(), short: short.trim().toUpperCase() || makeShort(name), color, createdAt: Date.now() };
         setData((d) => ({ ...d, teams: [...d.teams, team] }));
@@ -161,12 +204,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       swapStrike: (id) => mutate(id, swapStrike),
       nextInnings: (id) => mutate(id, startNextInnings),
       endInnings: (id) => mutate(id, endInnings),
+      setPlayerOfMatch: (id, playerId) => mutate(id, (m) => choosePlayerOfMatch(m, playerId)),
       deleteMatch: (id) => setData((d) => ({ ...d, matches: d.matches.filter((m) => m.id !== id) })),
+      replaceData: (replacement) => setData(replacement),
       resetAll: () => setData(empty),
     };
-  }, [data, careers]);
+  }, [data, careers, preferences]);
 
-  if (!ready) return <View style={{ flex: 1, backgroundColor: darkColors.bg }} />;
+  if (!ready || !preferencesReady) return <View style={{ flex: 1, backgroundColor: darkColors.bg }} />;
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
 

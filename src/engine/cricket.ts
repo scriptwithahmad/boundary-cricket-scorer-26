@@ -124,6 +124,128 @@ export function bowlingCard(inn: Innings): BowlStat[] {
   return Array.from(map.values());
 }
 
+export interface TeamMatchAwards {
+  teamId: string;
+  batsmanId: string | null;
+  batsmanRuns: number;
+  bowlerId: string | null;
+  bowlerWickets: number;
+  bowlerRuns: number;
+  fielderId: string | null;
+  fieldingDismissals: number;
+}
+
+export interface MatchAwards {
+  playerOfMatchId: string | null;
+  teams: Record<string, TeamMatchAwards>;
+}
+
+interface MatchPerformance {
+  runs: number;
+  batBalls: number;
+  fours: number;
+  sixes: number;
+  wickets: number;
+  bowlRuns: number;
+  bowlBalls: number;
+  fieldingDismissals: number;
+}
+
+export function matchAwards(m: Match): MatchAwards {
+  const performance = new Map<string, MatchPerformance>();
+  const get = (id: string) => {
+    let stats = performance.get(id);
+    if (!stats) {
+      stats = { runs: 0, batBalls: 0, fours: 0, sixes: 0, wickets: 0, bowlRuns: 0, bowlBalls: 0, fieldingDismissals: 0 };
+      performance.set(id, stats);
+    }
+    return stats;
+  };
+
+  for (const inn of m.innings) {
+    for (const batter of battingCard(inn)) {
+      const stats = get(batter.id);
+      stats.runs += batter.runs;
+      stats.batBalls += batter.balls;
+      stats.fours += batter.fours;
+      stats.sixes += batter.sixes;
+    }
+    for (const bowler of bowlingCard(inn)) {
+      const stats = get(bowler.id);
+      stats.wickets += bowler.wickets;
+      stats.bowlRuns += bowler.runs;
+      stats.bowlBalls += bowler.balls;
+    }
+    for (const ball of inn.balls) {
+      if (
+        ball.wicket?.fielderId &&
+        ['caught', 'runout', 'stumped'].includes(ball.wicket.kind) &&
+        m.squads[inn.bowlingTeamId]?.includes(ball.wicket.fielderId)
+      ) {
+        get(ball.wicket.fielderId).fieldingDismissals++;
+      }
+    }
+  }
+
+  const teamIds = [m.teamAId, m.teamBId];
+  const teams: Record<string, TeamMatchAwards> = {};
+  const candidates = teamIds.flatMap((teamId) => m.squads[teamId] ?? []);
+  const battingCompare = (a: string, b: string) => {
+    const first = get(a);
+    const second = get(b);
+    return second.runs - first.runs || second.fours - first.fours || second.sixes - first.sixes || first.batBalls - second.batBalls;
+  };
+  const bowlingCompare = (a: string, b: string) => {
+    const first = get(a);
+    const second = get(b);
+    return second.wickets - first.wickets || first.bowlRuns - second.bowlRuns || second.bowlBalls - first.bowlBalls;
+  };
+
+  for (const teamId of teamIds) {
+    const teamPlayers = m.squads[teamId] ?? [];
+    const batters = teamPlayers.filter((id) => get(id).batBalls > 0).sort(battingCompare);
+    const bowlers = teamPlayers.filter((id) => get(id).bowlBalls > 0).sort(bowlingCompare);
+    const fielders = teamPlayers
+      .filter((id) => get(id).fieldingDismissals > 0)
+      .sort((a, b) => get(b).fieldingDismissals - get(a).fieldingDismissals);
+    const bestBatter = batters[0] ?? null;
+    const bestBowler = bowlers[0] ?? null;
+    const bestFielder = fielders[0] ?? null;
+    teams[teamId] = {
+      teamId,
+      batsmanId: bestBatter,
+      batsmanRuns: bestBatter ? get(bestBatter).runs : 0,
+      bowlerId: bestBowler,
+      bowlerWickets: bestBowler ? get(bestBowler).wickets : 0,
+      bowlerRuns: bestBowler ? get(bestBowler).bowlRuns : 0,
+      fielderId: bestFielder,
+      fieldingDismissals: bestFielder ? get(bestFielder).fieldingDismissals : 0,
+    };
+  }
+
+  const activeCandidates = candidates.filter((id) => {
+    const stats = get(id);
+    return stats.runs > 0 || stats.wickets > 0 || stats.fieldingDismissals > 0 || stats.batBalls > 0 || stats.bowlBalls > 0;
+  });
+  const playerCandidates = activeCandidates.length ? activeCandidates : candidates;
+  const playerOfMatchId =
+    playerCandidates.sort((a, b) => {
+      const first = get(a);
+      const second = get(b);
+      const firstImpact = first.runs + first.wickets * 20 + first.fieldingDismissals * 10;
+      const secondImpact = second.runs + second.wickets * 20 + second.fieldingDismissals * 10;
+      return (
+        secondImpact - firstImpact ||
+        second.runs - first.runs ||
+        second.wickets - first.wickets ||
+        second.fieldingDismissals - first.fieldingDismissals ||
+        first.bowlRuns - second.bowlRuns
+      );
+    })[0] ?? null;
+
+  return { playerOfMatchId, teams };
+}
+
 export function fallOfWickets(inn: Innings) {
   let runs = 0;
   let legal = 0;
@@ -224,9 +346,18 @@ function computeResult(m: Match) {
 
 function finalize(m: Match): Match {
   if (m.innings.length === 2 && m.innings[1].status === 'done') {
-    return { ...m, status: 'completed', result: computeResult(m) };
+    return {
+      ...m,
+      status: 'completed',
+      result: { ...computeResult(m), playerOfMatchId: matchAwards(m).playerOfMatchId ?? undefined },
+    };
   }
   return m;
+}
+
+export function setPlayerOfMatch(m: Match, playerId: string): Match {
+  if (m.status !== 'completed' || !Object.values(m.squads).some((squad) => squad.includes(playerId)) || !m.result) return m;
+  return { ...m, result: { ...m.result, playerOfMatchId: playerId } };
 }
 
 function replaceLast(m: Match, inn: Innings): Match {

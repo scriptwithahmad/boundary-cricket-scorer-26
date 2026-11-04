@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useKeepAwake } from 'expo-keep-awake';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
-import { ArrowLeftRight, ClipboardList, Flag, Swords, Trophy, Undo2, UserPlus } from 'lucide-react-native';
+import { ArrowLeftRight, ClipboardList, Flag, MoreHorizontal, Swords, Trophy, Undo2, UserPlus } from 'lucide-react-native';
 import {
   AppText,
   Button,
@@ -38,8 +39,15 @@ import {
 } from '@/src/engine/cricket';
 import type { Ball, ExtraType, WicketKind } from '@/src/types';
 import { haptic } from '@/src/lib/haptics';
+import { MatchAwards } from '@/src/components/MatchAwards';
+import { MatchInsightsSheet } from '@/src/components/MatchInsightsSheet';
 
 const ALL_KINDS: WicketKind[] = ['bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket'];
+
+function ScoringKeepAwake() {
+  useKeepAwake('live-match-scoring', { suppressDeactivateWarnings: true });
+  return null;
+}
 
 function BallChip({ b }: { b: Ball }) {
   const { colors } = useTheme();
@@ -84,13 +92,22 @@ function BallChip({ b }: { b: Ball }) {
   );
 }
 
-function RunButton({ value, onPress }: { value: number; onPress: () => void }) {
+function RunButton({
+  value,
+  onPress,
+  hapticEnabled,
+}: {
+  value: number;
+  onPress: () => void;
+  hapticEnabled: boolean;
+}) {
   const { colors } = useTheme();
   const bg = value === 4 ? colors.fourSoft : value === 6 ? colors.sixSoft : colors.surfaceAlt;
   const fg = value === 4 ? colors.four : value === 6 ? colors.six : colors.text;
   return (
     <Tap
       onPress={onPress}
+      hapticEnabled={hapticEnabled}
       accessibilityLabel={`${value} run${value === 1 ? '' : 's'}`}
       scaleTo={0.92}
       style={{ flex: 1, height: 68, borderRadius: 22, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}
@@ -112,6 +129,7 @@ export default function ScoreScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const store = useStore();
+  const [isFocused, setIsFocused] = useState(false);
   const match = store.matches.find((m) => m.id === id);
   const inn = match ? currentInnings(match) : undefined;
   const t = inn ? totals(inn) : undefined;
@@ -120,16 +138,28 @@ export default function ScoreScreen() {
   const [extra, setExtra] = useState<ExtraType | null>(null);
   const [wicketOpen, setWicketOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<'striker' | 'nonStriker' | 'bowler' | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [wKind, setWKind] = useState<WicketKind | null>(null);
   const [wOut, setWOut] = useState<'striker' | 'nonStriker'>('striker');
   const [wFielder, setWFielder] = useState<string | null>(null);
   const [wRuns, setWRuns] = useState(0);
+  const [milestone, setMilestone] = useState<{ title: string; message: string } | null>(null);
+  const [insightsOpen, setInsightsOpen] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, []),
+  );
 
   const pop = useScorePop(t?.runs ?? 0);
 
   useEffect(() => {
-    setPickerOpen(!!need);
+    if (!need) return;
+    setPickerTarget(need);
+    setPickerOpen(true);
   }, [need, inn?.balls.length, match?.innings.length]);
 
   if (!match || !inn || !t) {
@@ -150,6 +180,13 @@ export default function ScoreScreen() {
   const nonStriker = bat.find((b) => b.id === inn.nonStriker);
   const bowlerStat = bowl.find((b) => b.id === inn.bowler);
   const name = (pid: string | null) => (pid ? m.players[pid]?.name ?? 'Player' : '—');
+  const hasPlayedBall = (playerId: string) =>
+    inn.balls.some((ball) => ball.batterId === playerId || ball.nonStrikerId === playerId);
+  const canChangeBowler = m.status === 'live' && inn.status === 'live' && !!inn.bowler && (bowlerStat?.balls ?? 0) === 0;
+  const openPlayerPicker = (target: 'striker' | 'nonStriker' | 'bowler') => {
+    setPickerTarget(target);
+    setPickerOpen(true);
+  };
   const over = lastOverBalls(inn);
   const overRuns = over.reduce((s, b) => s + ballRuns(b), 0);
   const crr = t.legal ? ((t.runs / t.legal) * 6).toFixed(2) : '0.00';
@@ -162,8 +199,16 @@ export default function ScoreScreen() {
   const limit = bowlerOverLimit(m);
 
   const onRun = (r: number) => {
+    const batterRuns = bat.find((stat) => stat.id === inn.striker)?.runs ?? 0;
+    const reached = [50, 100, 150, 200].find((score) => batterRuns < score && batterRuns + r >= score);
     store.score(m.id, { runs: r, extra: extra ?? undefined });
-    if (r === 4 || r === 6) haptic.impact();
+    if (store.hapticVibration && (r === 4 || r === 6)) haptic.impact();
+    if (reached !== undefined) {
+      setMilestone({
+        title: reached === 50 ? 'Half-century!' : reached === 100 ? 'Century!' : `${reached} runs!`,
+        message: `Congratulations to ${name(inn.striker)} on reaching ${reached} runs!`,
+      });
+    }
     setExtra(null);
   };
 
@@ -177,6 +222,13 @@ export default function ScoreScreen() {
   };
   const confirmWicket = () => {
     if (!wKind) return;
+    const creditedWicket = wKind !== 'runout';
+    let previousWickets = 0;
+    for (const ball of inn.balls.slice().reverse()) {
+      if (ball.bowlerId !== inn.bowler || !ball.wicket || ball.wicket.kind === 'runout') break;
+      previousWickets++;
+      if (previousWickets === 2) break;
+    }
     store.score(m.id, {
       runs: wKind === 'runout' ? wRuns : 0,
       extra: extra ?? undefined,
@@ -186,7 +238,18 @@ export default function ScoreScreen() {
         fielderId: wFielder ?? undefined,
       },
     });
-    haptic.warning();
+    if (store.hapticVibration) haptic.warning();
+    if (creditedWicket && previousWickets >= 2) {
+      setMilestone({
+        title: 'Hat-trick!',
+        message: `Incredible! ${name(inn.bowler)} has taken three wickets in three consecutive balls.`,
+      });
+    } else if (creditedWicket && previousWickets === 1) {
+      setMilestone({
+        title: 'On a hat-trick ball!',
+        message: `${name(inn.bowler)} has taken wickets on two consecutive balls. The next delivery is the hat-trick ball!`,
+      });
+    }
     setExtra(null);
     setWicketOpen(false);
   };
@@ -195,6 +258,22 @@ export default function ScoreScreen() {
   const eligibleBatters = (m.squads[inn.battingTeamId] ?? []).filter((pid) => !batted.includes(pid));
   const bowlerOvers = (pid: string) => bowl.find((b) => b.id === pid);
   const bowlers = m.squads[inn.bowlingTeamId] ?? [];
+  const pickerBatters = eligibleBatters.filter((pid) => pid !== inn.striker && pid !== inn.nonStriker);
+  const pickerBowlers = bowlers.filter((pid) => pid !== inn.bowler);
+  const closePlayerPicker = () => {
+    setPickerOpen(false);
+    setPickerTarget(null);
+  };
+  const selectPlayer = (playerId: string) => {
+    if (pickerTarget === 'bowler') {
+      store.setCrease(m.id, { bowler: playerId });
+    } else if (pickerTarget === 'striker') {
+      store.setCrease(m.id, { striker: playerId });
+    } else if (pickerTarget === 'nonStriker') {
+      store.setCrease(m.id, { nonStriker: playerId });
+    }
+    closePlayerPicker();
+  };
 
   const extrasOptions: { k: ExtraType; label: string }[] = [
     { k: 'wd', label: 'Wide' },
@@ -214,11 +293,17 @@ export default function ScoreScreen() {
       edges={['top', 'bottom']}
       contentStyle={{ paddingBottom: 24 }}
     >
+      {store.keepScreenAwake && live && isFocused ? <ScoringKeepAwake /> : null}
       <ScreenHeader
         title={`${m.teams[m.teamAId].short} v ${m.teams[m.teamBId].short}`}
         subtitle={`${m.format === 'Custom' ? `${m.overs} overs` : m.format} · ${inningsNo === 1 ? '1st' : '2nd'} innings`}
         back
-        right={<IconButton icon={ClipboardList} label="Full scorecard" onPress={() => router.push(`/match/${m.id}` as any)} />}
+        right={
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <IconButton icon={ClipboardList} label="Full scorecard" onPress={() => router.push(`/match/${m.id}` as any)} />
+            <IconButton icon={MoreHorizontal} label="Match insights and options" onPress={() => setInsightsOpen(true)} />
+          </View>
+        }
       />
 
       {/* Scoreboard */}
@@ -293,10 +378,29 @@ export default function ScoreScreen() {
           { s: nonStriker, strike: false },
         ].map(({ s, strike }, i) => (
           <View key={i} style={styles.tableRow}>
-            <AppText variant="bodyStrong" style={{ flex: 1 }} numberOfLines={1} color={s ? 'text' : 'textFaint'}>
-              {s ? name(s.id) : 'Waiting…'}
-              {s && strike ? ' *' : ''}
-            </AppText>
+            <View style={{ flex: 1 }}>
+              {s && live && inn.status === 'live' && !hasPlayedBall(s.id) ? (
+                <Tap
+                  onPress={() => openPlayerPicker(strike ? 'striker' : 'nonStriker')}
+                  accessibilityLabel={`Change ${strike ? 'striker' : 'non-striker'} ${name(s.id)}`}
+                  accessibilityHint="Opens the player picker"
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                    {strike ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primary }} /> : null}
+                    <AppText variant="bodyStrong" numberOfLines={1} color={strike ? 'primary' : 'text'}>
+                      {name(s.id)}
+                    </AppText>
+                  </View>
+                </Tap>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                  {s && strike ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primary }} /> : null}
+                  <AppText variant="bodyStrong" style={{ flex: 1 }} numberOfLines={1} color={!s ? 'textFaint' : strike ? 'primary' : 'text'}>
+                    {s ? name(s.id) : 'Waiting…'}
+                  </AppText>
+                </View>
+              )}
+            </View>
             <AppText variant="bodyStrong" style={cols.n}>
               {s?.runs ?? '-'}
             </AppText>
@@ -320,9 +424,21 @@ export default function ScoreScreen() {
             <AppText variant="label" color="textFaint">
               Bowler · {bowlTeam.short}
             </AppText>
-            <AppText variant="bodyStrong" numberOfLines={1} color={inn.bowler ? 'text' : 'textFaint'}>
-              {inn.bowler ? name(inn.bowler) : 'Waiting…'}
-            </AppText>
+            {inn.bowler && canChangeBowler ? (
+              <Tap
+                onPress={() => openPlayerPicker('bowler')}
+                accessibilityLabel={`Change bowler ${name(inn.bowler)}`}
+                accessibilityHint="Opens the bowler picker"
+              >
+                <AppText variant="bodyStrong" numberOfLines={1}>
+                  {name(inn.bowler)}
+                </AppText>
+              </Tap>
+            ) : (
+              <AppText variant="bodyStrong" numberOfLines={1} color={inn.bowler ? 'text' : 'textFaint'}>
+                {inn.bowler ? name(inn.bowler) : 'Waiting…'}
+              </AppText>
+            )}
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <AppText variant="bodyStrong" style={{ fontVariant: ['tabular-nums'] }}>
@@ -409,7 +525,7 @@ export default function ScoreScreen() {
           <>
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
               {extrasOptions.map((e) => (
-                <Chip key={e.k} label={e.label} selected={extra === e.k} tint={colors.accent} onPress={() => setExtra(extra === e.k ? null : e.k)} />
+                <Chip key={e.k} label={e.label} selected={extra === e.k} onPress={() => setExtra(extra === e.k ? null : e.k)} />
               ))}
             </View>
             {extra ? (
@@ -419,15 +535,16 @@ export default function ScoreScreen() {
             ) : null}
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {[0, 1, 2, 3].map((r) => (
-                <RunButton key={r} value={r} onPress={() => onRun(r)} />
+                <RunButton key={r} value={r} onPress={() => onRun(r)} hapticEnabled={store.hapticVibration} />
               ))}
             </View>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {[4, 5, 6].map((r) => (
-                <RunButton key={r} value={r} onPress={() => onRun(r)} />
+                <RunButton key={r} value={r} onPress={() => onRun(r)} hapticEnabled={store.hapticVibration} />
               ))}
               <Tap
                 onPress={openWicket}
+                hapticEnabled={store.hapticVibration}
                 accessibilityLabel="Wicket"
                 scaleTo={0.92}
                 style={{ flex: 1, height: 68, borderRadius: 22, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}
@@ -452,20 +569,32 @@ export default function ScoreScreen() {
         )}
       </Animated.View>
 
+      {!live ? <MatchAwards match={m} /> : null}
+
+      <MatchInsightsSheet
+        match={m}
+        visible={insightsOpen}
+        onClose={() => setInsightsOpen(false)}
+        onLeaveScoring={() => {
+          setInsightsOpen(false);
+          router.replace(`/match/${m.id}` as any);
+        }}
+      />
+
       {/* Picker sheet */}
       <Sheet
-        visible={pickerOpen && !!need}
-        onClose={() => setPickerOpen(false)}
-        title={need === 'bowler' ? 'Select bowler' : need === 'striker' ? 'Select striker' : 'Select non-striker'}
+        visible={pickerOpen && pickerTarget !== null}
+        onClose={closePlayerPicker}
+        title={pickerTarget === 'bowler' ? 'Select bowler' : pickerTarget === 'striker' ? 'Select striker' : 'Select non-striker'}
         subtitle={
-          need === 'bowler'
+          pickerTarget === 'bowler'
             ? `${bowlTeam.name} · max ${limit} over${limit === 1 ? '' : 's'} each${inn.lastOverBowler ? ' · last over’s bowler is resting' : ''}`
             : `${batTeam.name} · next in`
         }
       >
         <View style={{ gap: 8 }}>
-          {need === 'bowler'
-            ? bowlers.map((pid) => {
+          {pickerTarget === 'bowler' ? (
+            pickerBowlers.length ? pickerBowlers.map((pid) => {
                 const s = bowlerOvers(pid);
                 const rested = pid === inn.lastOverBowler;
                 const maxed = (s?.balls ?? 0) >= limit * 6;
@@ -476,7 +605,7 @@ export default function ScoreScreen() {
                     sub={m.players[pid]?.role}
                     color={bowlTeam.color}
                     disabled={rested || maxed}
-                    onPress={() => store.setCrease(m.id, { bowler: pid })}
+                    onPress={() => selectPlayer(pid)}
                     trailing={
                       <AppText variant="caption" color="textMuted" style={{ fontVariant: ['tabular-nums'] }}>
                         {rested ? 'Rested' : maxed ? 'Quota done' : s ? `${oversText(s.balls)}-${s.maidens}-${s.runs}-${s.wickets}` : 'Fresh'}
@@ -484,16 +613,20 @@ export default function ScoreScreen() {
                     }
                   />
                 );
-              })
-            : eligibleBatters.map((pid) => (
+                }) : <AppText variant="caption" color="textMuted">No other eligible bowlers are available.</AppText>
+          ) : pickerBatters.length ? (
+            pickerBatters.map((pid) => (
                 <PlayerRow
                   key={pid}
                   name={name(pid)}
                   sub={m.players[pid]?.role}
                   color={batTeam.color}
-                  onPress={() => store.setCrease(m.id, need === 'striker' ? { striker: pid } : { nonStriker: pid })}
+                  onPress={() => selectPlayer(pid)}
                 />
-              ))}
+            ))
+          ) : (
+            <AppText variant="caption" color="textMuted">No other eligible batters are available.</AppText>
+          )}
         </View>
       </Sheet>
 
@@ -511,7 +644,14 @@ export default function ScoreScreen() {
           </AppText>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {kinds.map((k) => (
-              <Chip key={k} label={WICKET_LABEL[k]} selected={wKind === k} tint={colors.danger} onPress={() => setWKind(k)} />
+              <Chip
+                key={k}
+                label={WICKET_LABEL[k]}
+                selected={wKind === k}
+                selectedBackgroundColor="#F5D2D6"
+                selectedTextColor="#971B29"
+                onPress={() => setWKind(k)}
+              />
             ))}
           </View>
         </View>
@@ -522,8 +662,8 @@ export default function ScoreScreen() {
                 Who is out
               </AppText>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                <Chip label={name(inn.striker)} selected={wOut === 'striker'} tint={colors.danger} onPress={() => setWOut('striker')} />
-                <Chip label={name(inn.nonStriker)} selected={wOut === 'nonStriker'} tint={colors.danger} onPress={() => setWOut('nonStriker')} />
+                <Chip label={name(inn.striker)} selected={wOut === 'striker'} onPress={() => setWOut('striker')} />
+                <Chip label={name(inn.nonStriker)} selected={wOut === 'nonStriker'} onPress={() => setWOut('nonStriker')} />
               </View>
             </View>
             <View style={{ gap: 8 }}>
@@ -545,11 +685,34 @@ export default function ScoreScreen() {
             </AppText>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {bowlers.map((pid) => (
-                <Chip key={pid} label={name(pid)} selected={wFielder === pid} onPress={() => setWFielder(wFielder === pid ? null : pid)} />
+                <Chip
+                  key={pid}
+                  label={name(pid)}
+                  selected={wFielder === pid}
+                  selectedBackgroundColor="#F5D2D6"
+                  selectedTextColor="#971B29"
+                  onPress={() => setWFielder(wFielder === pid ? null : pid)}
+                />
               ))}
             </View>
           </View>
         ) : null}
+      </Sheet>
+
+      <Sheet
+        visible={milestone !== null}
+        onClose={() => setMilestone(null)}
+        title={milestone?.title ?? ''}
+        footer={<Button label="Continue scoring" onPress={() => setMilestone(null)} />}
+      >
+        <View style={{ alignItems: 'center', gap: 12, paddingVertical: 8 }}>
+          <View style={[styles.trophy, { backgroundColor: colors.sixSoft }]}>
+            <Trophy size={28} color={colors.six} />
+          </View>
+          <AppText variant="bodyStrong" style={{ textAlign: 'center' }}>
+            {milestone?.message}
+          </AppText>
+        </View>
       </Sheet>
 
       <ConfirmSheet

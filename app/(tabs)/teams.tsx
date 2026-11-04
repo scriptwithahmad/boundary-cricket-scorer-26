@@ -66,12 +66,12 @@ export default function Teams() {
         title="New team"
         footer={<Button label="Create team" disabled={!name.trim()} onPress={submit} />}
       >
-        <Field label="Team name" value={name} onChangeText={setName} placeholder="e.g. Harbour Hawks" autoFocus returnKeyType="done" />
+        <Field label="Team name" value={name} onChangeText={setName} placeholder="e.g. Pakistan" autoFocus returnKeyType="done" />
         <Field
           label="Short code"
           value={short}
           onChangeText={(v) => setShort(v.slice(0, 3).toUpperCase())}
-          placeholder={name ? makeShort(name) : 'HAW'}
+          placeholder={name ? makeShort(name) : 'PAK'}
           autoCapitalize="characters"
           maxLength={3}
         />

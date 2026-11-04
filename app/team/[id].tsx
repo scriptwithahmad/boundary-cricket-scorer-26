@@ -159,7 +159,7 @@ export default function TeamDetail() {
           </>
         }
       >
-        <Field label="Player name" value={pName} onChangeText={setPName} placeholder="e.g. Arjun Rao" autoFocus returnKeyType="done" onSubmitEditing={savePlayer} />
+        <Field label="Player name" value={pName} onChangeText={setPName} placeholder="e.g. Muhammad Ahmad" autoFocus returnKeyType="done" onSubmitEditing={savePlayer} />
         <View style={{ gap: 8 }}>
           <AppText variant="label" color="textMuted">
             Role

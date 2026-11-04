@@ -71,6 +71,7 @@ export interface PlayerSnap {
 export interface MatchResult {
   winnerId: string | null;
   text: string;
+  playerOfMatchId?: string;
 }
 
 export interface Match {

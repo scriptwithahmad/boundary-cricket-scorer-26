@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { Check, Flag, Swords, Users, X, Zap } from 'lucide-react-native';
+import Animated, { Easing, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Check, Coins, Crown, Flag, RotateCw, Shield, Swords, Users, X, Zap } from 'lucide-react-native';
 import {
   AppText,
   Avatar,
@@ -15,6 +16,7 @@ import {
   ProgressBar,
   Screen,
   SectionHeader,
+  Sheet,
   Stepper,
   Tap,
 } from '@/src/components/ui';
@@ -24,6 +26,61 @@ import type { Format } from '@/src/types';
 
 const STEPS = ['Format', 'Teams', 'Squads', 'Toss'];
 const MAX_SQUAD = 11;
+
+type CoinSide = 'Heads' | 'Tails';
+
+function CoinFace({ side }: { side: CoinSide }) {
+  const Emblem = side === 'Heads' ? Crown : Shield;
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: 5,
+        top: 5,
+        right: 5,
+        bottom: 5,
+        borderRadius: 60,
+        borderWidth: 2,
+        borderColor: '#FFF0A3',
+        overflow: 'hidden',
+        backfaceVisibility: 'hidden',
+      }}
+    >
+      <LinearGradient
+        colors={['#FFF1A8', '#E6AD37', '#F6D36B', '#C8871C']}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <View
+          style={{
+            position: 'absolute',
+            left: 7,
+            top: 7,
+            right: 7,
+            bottom: 7,
+            borderRadius: 55,
+            borderWidth: 1.5,
+            borderColor: 'rgba(111,68,9,0.6)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 3,
+          }}
+        >
+          <Emblem size={26} color="#68430D" strokeWidth={2.2} />
+          <AppText variant="label" style={{ color: '#50330B', fontSize: 10, letterSpacing: 1.5 }}>
+            {side}
+          </AppText>
+          <View style={{ flexDirection: 'row', gap: 5 }}>
+            <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: '#68430D' }} />
+            <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: '#68430D' }} />
+            <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: '#68430D' }} />
+          </View>
+        </View>
+      </LinearGradient>
+    </View>
+  );
+}
 
 export default function NewMatch() {
   const { format: fmtParam } = useLocalSearchParams<{ format?: string }>();
@@ -40,6 +97,78 @@ export default function NewMatch() {
   const [squadB, setSquadB] = useState<string[]>([]);
   const [tossWinner, setTossWinner] = useState<string | null>(null);
   const [decision, setDecision] = useState<'bat' | 'bowl'>('bat');
+  const [coinSheetOpen, setCoinSheetOpen] = useState(false);
+  const [coinSide, setCoinSide] = useState<CoinSide | null>(null);
+  const [pendingCoinSide, setPendingCoinSide] = useState<CoinSide | null>(null);
+  const [coinCallerTeamId, setCoinCallerTeamId] = useState<string | null>(null);
+  const [coinCall, setCoinCall] = useState<CoinSide | null>(null);
+  const [coinFlipping, setCoinFlipping] = useState(false);
+  const coinRotation = useSharedValue(0);
+  const reduceMotion = useReducedMotion();
+  const coinStyle = useAnimatedStyle(() => ({
+    transform: [{ perspective: 800 }, { rotateY: `${coinRotation.value}deg` }],
+  }));
+  const flipDuration = reduceMotion ? 450 : 1100;
+
+  useEffect(() => {
+    if (!coinFlipping || !pendingCoinSide) return;
+    const timer = setTimeout(() => {
+      setCoinSide(pendingCoinSide);
+      coinRotation.value = 0;
+      if (coinCallerTeamId && coinCall) {
+        const winnerId = pendingCoinSide === coinCall
+          ? coinCallerTeamId
+          : coinCallerTeamId === teamA ? teamB : teamA;
+        setTossWinner(winnerId);
+      }
+      setPendingCoinSide(null);
+      setCoinFlipping(false);
+    }, flipDuration);
+    return () => clearTimeout(timer);
+  }, [coinCall, coinCallerTeamId, coinFlipping, coinRotation, flipDuration, pendingCoinSide, teamA, teamB]);
+
+  const openCoinSheet = () => {
+    setCoinSide(null);
+    setPendingCoinSide(null);
+    setCoinCallerTeamId(null);
+    setCoinCall(null);
+    setCoinFlipping(false);
+    coinRotation.value = 0;
+    setCoinSheetOpen(true);
+  };
+
+  const closeCoinSheet = () => {
+    if (coinFlipping) return;
+    if (coinSide && coinCallerTeamId && coinCall) {
+      setTossWinner(
+        coinSide === coinCall
+          ? coinCallerTeamId
+          : coinCallerTeamId === teamA ? teamB : teamA,
+      );
+    }
+    setCoinFlipping(false);
+    setPendingCoinSide(null);
+    setCoinSheetOpen(false);
+  };
+
+  const flipCoin = () => {
+    if (coinFlipping || !coinCallerTeamId || !coinCall) return;
+    const result: CoinSide = Math.random() < 0.5 ? 'Heads' : 'Tails';
+    setCoinSide(null);
+    setPendingCoinSide(result);
+    setCoinFlipping(true);
+    coinRotation.value = 0;
+    coinRotation.value = withTiming(1800, {
+      duration: flipDuration,
+      easing: Easing.out(Easing.cubic),
+    });
+  };
+
+  const flipAgain = () => {
+    if (coinFlipping) return;
+    setCoinSide(null);
+    flipCoin();
+  };
 
   const overs = format === 'T20' ? 20 : format === 'ODI' ? 50 : customOvers;
   const playersOf = (tid: string | null) => store.players.filter((p) => p.teamId === tid);
@@ -180,13 +309,17 @@ export default function NewMatch() {
               >
                 <Avatar name={t.short} color={t.color} size={42} />
                 <View style={{ flex: 1 }}>
-                  <AppText variant="bodyStrong">{t.name}</AppText>
+                  <AppText variant="bodyStrong" color="text">{t.name}</AppText>
                   <AppText variant="caption" color={n < 2 ? 'danger' : 'textMuted'}>
                     {n} player{n === 1 ? '' : 's'}
                     {n < 2 ? ' · add more first' : ''}
                   </AppText>
                 </View>
-                {on ? <Check size={20} color={colors.primary} strokeWidth={3} /> : null}
+                {on ? (
+                  <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+                    <Check size={16} color={colors.onPrimary} strokeWidth={3} />
+                  </View>
+                ) : null}
               </Tap>
             );
           })}
@@ -308,6 +441,18 @@ export default function NewMatch() {
 
         {step === 3 && teamA && teamB ? (
           <View style={{ gap: 16 }}>
+            <Card style={{ gap: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+                  <Coins size={20} color={colors.primary} strokeWidth={2.2} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppText variant="bodyStrong">Flip for the toss</AppText>
+                  <AppText variant="caption" color="textMuted">One team calls heads or tails. The matching call wins.</AppText>
+                </View>
+              </View>
+              <Button label="Flip coin" icon={RotateCw} variant="soft" onPress={openCoinSheet} />
+            </Card>
             <AppText variant="label" color="textMuted">
               Who won the toss?
             </AppText>
@@ -333,7 +478,11 @@ export default function NewMatch() {
                   <AppText variant="heading" style={{ flex: 1 }}>
                     {t.name}
                   </AppText>
-                  {on ? <Check size={22} color={colors.primary} strokeWidth={3} /> : null}
+                  {on ? (
+                    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+                      <Check size={17} color={colors.onPrimary} strokeWidth={3} />
+                    </View>
+                  ) : null}
                 </Tap>
               );
             })}
@@ -342,10 +491,10 @@ export default function NewMatch() {
             </AppText>
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ flex: 1 }}>
-                <Button label="Bat first" variant={decision === 'bat' ? 'primary' : 'secondary'} onPress={() => setDecision('bat')} />
+                <Button label="Bat first" variant={decision === 'bat' ? 'soft' : 'secondary'} onPress={() => setDecision('bat')} />
               </View>
               <View style={{ flex: 1 }}>
-                <Button label="Bowl first" variant={decision === 'bowl' ? 'primary' : 'secondary'} onPress={() => setDecision('bowl')} />
+                <Button label="Bowl first" variant={decision === 'bowl' ? 'soft' : 'secondary'} onPress={() => setDecision('bowl')} />
               </View>
             </View>
             <Card style={{ marginTop: 8, gap: 4 }}>
@@ -362,6 +511,142 @@ export default function NewMatch() {
           </View>
         ) : null}
       </Animated.View>
+
+      <Sheet
+        visible={coinSheetOpen}
+        onClose={closeCoinSheet}
+        title="Flip the coin"
+        subtitle="Choose a team and its call before flipping."
+      >
+        <View style={{ alignItems: 'center', gap: 16, paddingVertical: 8 }}>
+          <Animated.View
+            style={[
+              {
+                width: 144,
+                height: 144,
+                borderRadius: 72,
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#000000',
+                shadowOpacity: 0.3,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 8 },
+                elevation: 8,
+              },
+              coinStyle,
+            ]}
+          >
+            <View
+              style={{
+                position: 'absolute',
+                width: 140,
+                height: 140,
+                borderRadius: 70,
+                borderWidth: 3,
+                borderColor: '#FFE58A',
+                backgroundColor: '#A96E17',
+                transform: [{ translateX: 3 }],
+              }}
+            />
+            {coinSide ? <CoinFace side={coinSide} /> : (
+              <View
+                style={{
+                  position: 'absolute',
+                  left: 5,
+                  top: 5,
+                  right: 5,
+                  bottom: 5,
+                  borderRadius: 67,
+                  borderWidth: 2,
+                  borderColor: '#FFF0A3',
+                  backgroundColor: '#E8B747',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backfaceVisibility: 'hidden',
+                }}
+              >
+                <AppText variant="title" style={{ color: '#50330B' }}>{coinFlipping ? '•' : '?'}</AppText>
+              </View>
+            )}
+          </Animated.View>
+          <AppText variant="bodyStrong" color="textMuted" style={{ textAlign: 'center' }}>
+            {coinFlipping ? 'Flipping…' : coinSide ? `It landed on ${coinSide}.` : 'Tap below to flip.'}
+          </AppText>
+        </View>
+        {!coinSide ? (
+          <View style={{ gap: 12 }}>
+            <AppText variant="label" color="textMuted">Which team is calling?</AppText>
+            <View style={{ gap: 8 }}>
+              {[teamA, teamB].map((teamId) => {
+                const team = store.teams.find((item) => item.id === teamId);
+                if (!team) return null;
+                const selected = coinCallerTeamId === teamId;
+                return (
+                  <Tap
+                    key={teamId}
+                    onPress={() => setCoinCallerTeamId(teamId)}
+                    accessibilityState={{ selected }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: 12,
+                      borderRadius: 16,
+                      backgroundColor: selected ? colors.primarySoft : colors.surfaceAlt,
+                      borderWidth: 1,
+                      borderColor: selected ? colors.primary : 'transparent',
+                    }}
+                  >
+                    <Avatar name={team.short} color={team.color} size={38} />
+                    <AppText variant="bodyStrong" style={{ flex: 1 }}>{team.name}</AppText>
+                    {selected ? <Check size={18} color={colors.primary} strokeWidth={2.8} /> : null}
+                  </Tap>
+                );
+              })}
+            </View>
+            <AppText variant="label" color="textMuted">The team calls</AppText>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {(['Heads', 'Tails'] as const).map((side) => (
+                <View key={side} style={{ flex: 1 }}>
+                  <Button
+                    label={side}
+                    variant={coinCall === side ? 'soft' : 'secondary'}
+                    disabled={!coinCallerTeamId}
+                    onPress={() => setCoinCall(side)}
+                  />
+                </View>
+              ))}
+            </View>
+            <Button
+              label="Flip coin"
+              icon={RotateCw}
+              variant="soft"
+              disabled={!coinCallerTeamId || !coinCall}
+              onPress={flipCoin}
+            />
+          </View>
+        ) : (
+          <View style={{ gap: 12 }}>
+            <Card style={{ alignItems: 'center', gap: 6 }}>
+              <AppText variant="label" color="textMuted">Toss winner</AppText>
+              <AppText variant="title" color="primary">
+                {teamName(tossWinner)}
+              </AppText>
+              <AppText variant="caption" color="textMuted" style={{ textAlign: 'center' }}>
+                {teamName(coinCallerTeamId)} called {coinCall}. The coin landed on {coinSide}.
+              </AppText>
+            </Card>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Button label="Flip again" icon={RotateCw} variant="secondary" onPress={flipAgain} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button label="Use toss result" variant="soft" onPress={closeCoinSheet} />
+              </View>
+            </View>
+          </View>
+        )}
+      </Sheet>
     </Screen>
   );
 }

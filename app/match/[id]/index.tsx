@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Play, Swords, Trash2, Trophy } from 'lucide-react-native';
 import { AppText, Badge, Button, Card, ConfirmSheet, EmptyState, Screen, ScreenHeader, Segmented } from '@/src/components/ui';
 import { InningsScorecard } from '@/src/components/Scorecard';
+import { MatchAwards } from '@/src/components/MatchAwards';
 import { fmtDate } from '@/src/components/MatchCard';
 import { useStore } from '@/src/store';
 import { useTheme } from '@/src/theme';
@@ -55,6 +56,8 @@ export default function MatchDetail() {
           <Button label="Resume scoring" icon={Play} onPress={() => router.replace(`/match/${match.id}/score` as any)} />
         </View>
       ) : null}
+
+      {!live ? <MatchAwards match={match} /> : null}
 
       <View style={{ marginTop: 24, marginBottom: 16 }}>
         <Segmented
