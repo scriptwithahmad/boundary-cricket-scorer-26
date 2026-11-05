@@ -636,7 +636,7 @@ export function Sheet({
               <IconButton icon={X} label="Close" onPress={onClose} size={36} />
             </View>
             <ScrollView
-              style={{ flexGrow: 0 }}
+              style={{ flexGrow: 0, flexShrink: 1, minHeight: 0 }}
               contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 8, gap: 16 }}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}

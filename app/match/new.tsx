@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { Easing, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
-import { Check, Coins, Crown, Flag, RotateCw, Shield, Swords, Users, X, Zap } from 'lucide-react-native';
+import { Check, ChevronDown, ChevronUp, Coins, Crown, Flag, RotateCw, Shield, Swords, Users, X, Zap } from 'lucide-react-native';
 import {
   AppText,
   Avatar,
@@ -89,6 +89,7 @@ export default function NewMatch() {
   const store = useStore();
 
   const [step, setStep] = useState(0);
+  const [openTeams, setOpenTeams] = useState({ A: true, B: true });
   const [format, setFormat] = useState<Format>(fmtParam === 'ODI' ? 'ODI' : fmtParam === 'Custom' ? 'Custom' : 'T20');
   const [customOvers, setCustomOvers] = useState(10);
   const [teamA, setTeamA] = useState<string | null>(null);
@@ -284,8 +285,16 @@ export default function NewMatch() {
     const other = side === 'A' ? teamB : teamA;
     return (
       <View>
-        <SectionHeader title={`Team ${side}`} />
-        <View style={{ gap: 8 }}>
+        <Tap
+          onPress={() => setOpenTeams((current) => ({ ...current, [side]: !current[side] }))}
+          accessibilityLabel={`Team ${side}`}
+          accessibilityState={{ expanded: openTeams[side] }}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, marginTop: 12, marginBottom: 8, gap: 8 }}
+        >
+          <AppText variant="label" color="textMuted">Team {side}</AppText>
+          {openTeams[side] ? <ChevronUp size={18} color={colors.textMuted} /> : <ChevronDown size={18} color={colors.textMuted} />}
+        </Tap>
+        {openTeams[side] ? <View style={{ gap: 8 }}>
           {store.teams.map((t) => {
             const n = playersOf(t.id).length;
             const on = sel === t.id;
@@ -323,7 +332,7 @@ export default function NewMatch() {
               </Tap>
             );
           })}
-        </View>
+        </View> : null}
       </View>
     );
   };

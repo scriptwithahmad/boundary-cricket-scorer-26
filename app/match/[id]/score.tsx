@@ -182,7 +182,8 @@ export default function ScoreScreen() {
   const name = (pid: string | null) => (pid ? m.players[pid]?.name ?? 'Player' : '—');
   const hasPlayedBall = (playerId: string) =>
     inn.balls.some((ball) => ball.batterId === playerId || ball.nonStrikerId === playerId);
-  const canChangeBowler = m.status === 'live' && inn.status === 'live' && !!inn.bowler && (bowlerStat?.balls ?? 0) === 0;
+  const currentOverStarted = inn.balls.some((ball) => ball.over === Math.floor(t.legal / 6));
+  const canChangeBowler = m.status === 'live' && inn.status === 'live' && !!inn.bowler && !currentOverStarted;
   const openPlayerPicker = (target: 'striker' | 'nonStriker' | 'bowler') => {
     setPickerTarget(target);
     setPickerOpen(true);
@@ -561,8 +562,15 @@ export default function ScoreScreen() {
               <View style={{ flex: 1 }}>
                 <Button label="Swap" variant="secondary" size="sm" icon={ArrowLeftRight} onPress={() => store.swapStrike(m.id)} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Button label="End innings" variant="ghost" size="sm" icon={Flag} onPress={() => setConfirmEnd(true)} />
+              <View style={{ flex: 1.2 }}>
+                <Tap
+                  onPress={() => setConfirmEnd(true)}
+                  accessibilityLabel="End innings"
+                  style={{ height: 38, paddingHorizontal: 8, borderRadius: 24, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+                >
+                  <Flag size={14} color={colors.text} />
+                  <AppText variant="bodyStrong" numberOfLines={1} style={{ fontSize: 12, flexShrink: 1 }}>End innings</AppText>
+                </Tap>
               </View>
             </View>
           </>
