@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import { Download, Moon, Smartphone, Sun, Trash2, Upload } from 'lucide-react-native';
+import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Download, Mail, MessageCircle, Moon, Smartphone, Sun, Trash2, Upload } from 'lucide-react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Directory, File } from 'expo-file-system';
 import {
@@ -147,7 +147,7 @@ function AppearanceTabs({
 
   return (
     <View
-      style={[styles.appearance, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      style={[styles.appearance, { backgroundColor: colors.surface }]}
       onLayout={(event) => {
         const width = event.nativeEvent.layout.width;
         setTrackWidth(width);
@@ -247,6 +247,14 @@ export default function SettingsScreen() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [pendingImport, setPendingImport] = useState<AppData | null>(null);
   const [feedback, setFeedback] = useState<{ text: string; error: boolean } | null>(null);
+
+  const openContact = async (url: string, fallback: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Could not open contact link', fallback);
+    }
+  };
 
   const exportData = async () => {
     const data: AppData = {
@@ -392,6 +400,25 @@ export default function SettingsScreen() {
         ) : null}
       </Card>
 
+      <SectionHeader title="Contact us" />
+      <Card style={styles.dataCard}>
+        <AppText variant="caption" color="textMuted">
+          Share your reviews, report bugs, or get help with issues via WhatsApp or email.
+        </AppText>
+        <Button
+          label="WhatsApp: 0309-9968433"
+          icon={MessageCircle}
+          variant="secondary"
+          onPress={() => openContact('https://wa.me/923099968433', 'Contact us on WhatsApp at 0309-9968433.')}
+        />
+        <Button
+          label="scriptwithahmad@gmail.com"
+          icon={Mail}
+          variant="secondary"
+          onPress={() => openContact('mailto:scriptwithahmad@gmail.com?subject=Boundary%20feedback%20or%20issue', 'Email us at scriptwithahmad@gmail.com.')}
+        />
+      </Card>
+
       <SectionHeader title="Danger zone" />
       <Card style={styles.dangerCard}>
         <View style={styles.dangerCopy}>
@@ -428,7 +455,7 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  appearance: { padding: 6, borderWidth: 1, borderRadius: 18, overflow: 'hidden' },
+  appearance: { padding: 6, borderRadius: 18, overflow: 'hidden' },
   appearanceIndicator: { position: 'absolute', top: 6, bottom: 6, left: 6, borderRadius: 12 },
   appearanceTabs: { flexDirection: 'row' },
   appearanceTab: { minWidth: 0, minHeight: 48, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 12 },

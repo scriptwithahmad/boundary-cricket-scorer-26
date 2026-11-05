@@ -65,7 +65,7 @@ export function AppText({
   accessibilityRole?: 'header';
 }) {
   const { colors } = useTheme();
-  const c = (colors as Record<string, string>)[color] ?? color;
+  const c = Object.prototype.hasOwnProperty.call(colors, color) ? colors[color as keyof Palette] : color;
   return (
     <Text {...rest} style={[variants[variant], { color: c }, style]}>
       {children}
@@ -120,12 +120,14 @@ export function Tap({
 export function Screen({
   children,
   scroll = true,
+  fillContent = false,
   edges = ['top'],
   footer,
   contentStyle,
 }: {
   children: ReactNode;
   scroll?: boolean;
+  fillContent?: boolean;
   edges?: ('top' | 'bottom')[];
   footer?: ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
@@ -136,11 +138,11 @@ export function Screen({
       {scroll ? (
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={[styles.scrollContent, contentStyle]}
+          contentContainerStyle={[styles.scrollContent, fillContent && { flexGrow: 1 }, contentStyle]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.maxWidth}>{children}</View>
+          <View style={[styles.maxWidth, fillContent && { flexGrow: 1 }]}>{children}</View>
         </ScrollView>
       ) : (
         <View style={[{ flex: 1 }, styles.scrollContent, contentStyle]}>

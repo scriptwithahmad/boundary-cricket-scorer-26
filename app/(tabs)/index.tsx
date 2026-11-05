@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRouter } from 'expo-router';
@@ -80,6 +80,12 @@ export default function Home() {
   return (
     <Screen>
       <Animated.View entering={FadeInDown.duration(350)} style={styles.top}>
+        <Image
+          source={require('../../assets/images/icon.png')}
+          style={{ width: 52, height: 52, borderRadius: 12, marginRight: 10 }}
+          resizeMode="contain"
+          accessibilityLabel="Boundary logo"
+        />
         <View style={{ flex: 1 }}>
           <AppText variant="label" color="primary">
             Cricket scoring

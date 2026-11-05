@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -96,10 +96,12 @@ function RunButton({
   value,
   onPress,
   hapticEnabled,
+  compact = false,
 }: {
   value: number;
   onPress: () => void;
   hapticEnabled: boolean;
+  compact?: boolean;
 }) {
   const { colors } = useTheme();
   const bg = value === 4 ? colors.fourSoft : value === 6 ? colors.sixSoft : colors.surfaceAlt;
@@ -110,7 +112,7 @@ function RunButton({
       hapticEnabled={hapticEnabled}
       accessibilityLabel={`${value} run${value === 1 ? '' : 's'}`}
       scaleTo={0.92}
-      style={{ flex: 1, height: 68, borderRadius: 22, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}
+      style={{ flex: 1, height: compact ? 52 : 68, borderRadius: compact ? 18 : 22, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}
     >
       <AppText variant="title" color={fg} style={{ fontSize: 28, fontFamily: fonts.extrabold }}>
         {value}
@@ -125,6 +127,8 @@ const cols = StyleSheet.create({
 });
 
 export default function ScoreScreen() {
+  const { height: viewportHeight } = useWindowDimensions();
+  const compact = viewportHeight < 800;
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colors } = useTheme();
@@ -292,7 +296,8 @@ export default function ScoreScreen() {
   return (
     <Screen
       edges={['top', 'bottom']}
-      contentStyle={{ paddingBottom: 24 }}
+      fillContent
+      contentStyle={{ paddingBottom: compact ? 10 : 24 }}
     >
       {store.keepScreenAwake && live && isFocused ? <ScoringKeepAwake /> : null}
       <ScreenHeader
@@ -308,14 +313,14 @@ export default function ScoreScreen() {
       />
 
       {/* Scoreboard */}
-      <LinearGradient colors={[colors.heroA, colors.heroB]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.board}>
+      <LinearGradient colors={[colors.heroA, colors.heroB]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.board, compact && { padding: 14, gap: 4, borderRadius: 22 }]}>
         <View style={[styles.ring, { width: 220, height: 220, right: -80, top: -90 }]} />
         <View style={[styles.ring, { width: 120, height: 120, right: -20, top: -30 }]} />
         <AppText variant="label" color={colors.onHeroMuted}>
           {batTeam.name} batting
         </AppText>
         <Animated.View style={[{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }, pop]}>
-          <AppText variant="score" color={colors.onHero}>
+          <AppText variant="score" color={colors.onHero} style={compact ? { fontSize: 44, lineHeight: 48 } : undefined}>
             {t.runs}/{t.wickets}
           </AppText>
           <AppText variant="heading" color={colors.onHeroMuted} style={{ paddingBottom: 8, fontVariant: ['tabular-nums'] }}>
@@ -360,8 +365,8 @@ export default function ScoreScreen() {
       </LinearGradient>
 
       {/* Crease */}
-      <Card style={{ marginTop: 16, gap: 4 }}>
-        <View style={styles.tableRow}>
+      <Card style={{ marginTop: compact ? 10 : 16, gap: compact ? 2 : 4, padding: compact ? 12 : 16 }}>
+        <View style={[styles.tableRow, compact && { paddingVertical: 3 }]}>
           <AppText variant="label" color="textFaint" style={{ flex: 1 }}>
             Batter
           </AppText>
@@ -419,7 +424,7 @@ export default function ScoreScreen() {
             </AppText>
           </View>
         ))}
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <View style={[styles.divider, { backgroundColor: colors.border, marginVertical: compact ? 4 : 8 }]} />
         <View style={styles.tableRow}>
           <View style={{ flex: 1 }}>
             <AppText variant="label" color="textFaint">
@@ -453,7 +458,7 @@ export default function ScoreScreen() {
       </Card>
 
       {/* This over */}
-      <View style={{ marginTop: 16, gap: 10 }}>
+      <View style={{ marginTop: compact ? 10 : 16, gap: compact ? 6 : 10 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <AppText variant="label" color="textMuted">
             This over
@@ -476,7 +481,8 @@ export default function ScoreScreen() {
       </View>
 
       {/* Controls */}
-      <Animated.View entering={FadeInDown.duration(300)} style={{ marginTop: 24, gap: 12 }}>
+      <View style={{ marginTop: live && inn.status === 'live' ? 'auto' : 0 }}>
+      <Animated.View entering={FadeInDown.duration(300)} style={{ marginTop: compact ? 12 : 24, gap: compact ? 8 : 12 }}>
         {!live ? (
           <Card style={{ alignItems: 'center', gap: 12, paddingVertical: 24 }}>
             <View style={[styles.trophy, { backgroundColor: colors.sixSoft }]}>
@@ -536,26 +542,26 @@ export default function ScoreScreen() {
             ) : null}
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {[0, 1, 2, 3].map((r) => (
-                <RunButton key={r} value={r} onPress={() => onRun(r)} hapticEnabled={store.hapticVibration} />
+                <RunButton key={r} compact={compact} value={r} onPress={() => onRun(r)} hapticEnabled={store.hapticVibration} />
               ))}
             </View>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {[4, 5, 6].map((r) => (
-                <RunButton key={r} value={r} onPress={() => onRun(r)} hapticEnabled={store.hapticVibration} />
+                <RunButton key={r} compact={compact} value={r} onPress={() => onRun(r)} hapticEnabled={store.hapticVibration} />
               ))}
               <Tap
                 onPress={openWicket}
                 hapticEnabled={store.hapticVibration}
                 accessibilityLabel="Wicket"
                 scaleTo={0.92}
-                style={{ flex: 1, height: 68, borderRadius: 22, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}
+                style={{ flex: 1, height: compact ? 52 : 68, borderRadius: compact ? 18 : 22, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}
               >
                 <AppText variant="title" color="onDanger" style={{ fontFamily: fonts.extrabold, fontSize: 24 }}>
                   OUT
                 </AppText>
               </Tap>
             </View>
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: compact ? 0 : 4 }}>
               <View style={{ flex: 1 }}>
                 <Button label="Undo" variant="secondary" size="sm" icon={Undo2} disabled={!inn.balls.length} onPress={() => store.undo(m.id)} />
               </View>
@@ -576,6 +582,7 @@ export default function ScoreScreen() {
           </>
         )}
       </Animated.View>
+      </View>
 
       {!live ? <MatchAwards match={m} /> : null}
 
@@ -596,7 +603,7 @@ export default function ScoreScreen() {
         title={pickerTarget === 'bowler' ? 'Select bowler' : pickerTarget === 'striker' ? 'Select striker' : 'Select non-striker'}
         subtitle={
           pickerTarget === 'bowler'
-            ? `${bowlTeam.name} · max ${limit} over${limit === 1 ? '' : 's'} each${inn.lastOverBowler ? ' · last over’s bowler is resting' : ''}`
+            ? `${bowlTeam.name} · max ${limit} over${limit === 1 ? '' : 's'} each${inn.lastOverBowler && !m.allowConsecutiveOvers ? ' · last over’s bowler is resting' : ''}`
             : `${batTeam.name} · next in`
         }
       >
@@ -604,7 +611,7 @@ export default function ScoreScreen() {
           {pickerTarget === 'bowler' ? (
             pickerBowlers.length ? pickerBowlers.map((pid) => {
                 const s = bowlerOvers(pid);
-                const rested = pid === inn.lastOverBowler;
+                const rested = !m.allowConsecutiveOvers && pid === inn.lastOverBowler;
                 const maxed = (s?.balls ?? 0) >= limit * 6;
                 return (
                   <PlayerRow

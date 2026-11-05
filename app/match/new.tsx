@@ -92,6 +92,8 @@ export default function NewMatch() {
   const [openTeams, setOpenTeams] = useState({ A: true, B: true });
   const [format, setFormat] = useState<Format>(fmtParam === 'ODI' ? 'ODI' : fmtParam === 'Custom' ? 'Custom' : 'T20');
   const [customOvers, setCustomOvers] = useState(10);
+  const [customBowlerLimit, setCustomBowlerLimit] = useState<number | null>(null);
+  const [allowConsecutiveOvers, setAllowConsecutiveOvers] = useState(false);
   const [teamA, setTeamA] = useState<string | null>(null);
   const [teamB, setTeamB] = useState<string | null>(null);
   const [squadA, setSquadA] = useState<string[]>([]);
@@ -172,6 +174,9 @@ export default function NewMatch() {
   };
 
   const overs = format === 'T20' ? 20 : format === 'ODI' ? 50 : customOvers;
+  const bowlerLimit = format === 'Custom'
+    ? Math.min(overs, customBowlerLimit ?? Math.max(1, Math.ceil(overs / 5)))
+    : Math.max(1, Math.ceil(overs / 5));
   const playersOf = (tid: string | null) => store.players.filter((p) => p.teamId === tid);
   const teamName = (id: string | null) => store.teams.find((t) => t.id === id)?.name ?? '';
 
@@ -207,6 +212,8 @@ export default function NewMatch() {
     const id = store.createMatch({
       format,
       overs,
+      bowlerOversLimit: bowlerLimit,
+      allowConsecutiveOvers: format === 'Custom' && allowConsecutiveOvers,
       teamAId: teamA,
       teamBId: teamB,
       squadA,
@@ -409,8 +416,23 @@ export default function NewMatch() {
                 </View>
               </Card>
             ) : null}
+            {format === 'Custom' ? (
+              <Card style={{ gap: 12, alignItems: 'center' }}>
+                <AppText variant="label" color="textMuted">Maximum overs per bowler</AppText>
+                <Stepper value={bowlerLimit} onChange={setCustomBowlerLimit} min={1} max={overs} />
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <Chip label="Automatic" selected={customBowlerLimit === null} onPress={() => setCustomBowlerLimit(null)} />
+                  <Chip label="No limit" selected={customBowlerLimit === overs} onPress={() => setCustomBowlerLimit(overs)} />
+                </View>
+                <AppText variant="caption" color="textMuted">Allow the same bowler to bowl consecutive overs?</AppText>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Chip label="No" selected={!allowConsecutiveOvers} onPress={() => setAllowConsecutiveOvers(false)} />
+                  <Chip label="Yes" selected={allowConsecutiveOvers} onPress={() => setAllowConsecutiveOvers(true)} />
+                </View>
+              </Card>
+            ) : null}
             <AppText variant="caption" color="textMuted" style={{ textAlign: 'center', marginTop: 4 }}>
-              Each bowler can bowl up to {Math.max(1, Math.ceil(overs / 5))} over{Math.ceil(overs / 5) === 1 ? '' : 's'}.
+              Each bowler can bowl up to {bowlerLimit} over{bowlerLimit === 1 ? '' : 's'}.
             </AppText>
           </View>
         ) : null}
@@ -509,6 +531,9 @@ export default function NewMatch() {
             <Card style={{ marginTop: 8, gap: 4 }}>
               <AppText variant="caption" color="textMuted">
                 {format === 'Custom' ? `${overs}-over match` : format}
+              </AppText>
+              <AppText variant="caption" color="textMuted">
+                Maximum {bowlerLimit} overs per bowler. {format === 'Custom' && allowConsecutiveOvers ? 'Consecutive overs allowed.' : 'Bowlers alternate overs.'}
               </AppText>
               <AppText variant="bodyStrong">
                 {teamName(teamA)} v {teamName(teamB)}

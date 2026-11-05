@@ -47,7 +47,7 @@ export function totals(inn: Innings) {
 }
 
 export const maxWickets = (m: Match, inn: Innings) => Math.max(1, (m.squads[inn.battingTeamId]?.length ?? 2) - 1);
-export const bowlerOverLimit = (m: Match) => Math.max(1, Math.ceil(m.overs / 5));
+export const bowlerOverLimit = (m: Match) => Math.max(1, Math.min(m.overs, m.bowlerOversLimit ?? Math.ceil(m.overs / 5)));
 
 export function battingOrder(inn: Innings): string[] {
   const order: string[] = [];
@@ -393,6 +393,8 @@ export function createMatch(cfg: NewMatchConfig, teams: Team[], players: Player[
     createdAt: Date.now(),
     format: cfg.format,
     overs: cfg.overs,
+    bowlerOversLimit: cfg.bowlerOversLimit,
+    allowConsecutiveOvers: cfg.allowConsecutiveOvers,
     teamAId: tA.id,
     teamBId: tB.id,
     squads: { [tA.id]: cfg.squadA, [tB.id]: cfg.squadB },

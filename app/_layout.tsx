@@ -14,7 +14,7 @@ if (typeof document !== 'undefined' && !document.getElementById('genvibe-inspect
   document.head.appendChild(__gvInspector);
 }
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -29,11 +29,13 @@ import { PlusJakartaSans_800ExtraBold } from '@expo-google-fonts/plus-jakarta-sa
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { ThemeProvider, useTheme } from '@/src/theme';
 import { StoreProvider } from '@/src/store';
+import { StartupScreen } from '@/src/components/StartupScreen';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-function Shell() {
+function Shell({ onReady }: { onReady: () => void }) {
   const { colors, isDark } = useTheme();
+  useEffect(onReady, [onReady]);
   return (
     <>
       <Stack
@@ -54,6 +56,11 @@ function Shell() {
 
 export default function RootLayout() {
   useFrameworkReady();
+  const [appReady, setAppReady] = useState(false);
+  const [showStartup, setShowStartup] = useState(true);
+  const markReady = useCallback(() => setAppReady(true), []);
+  const finishStartup = useCallback(() => setShowStartup(false), []);
+  const hideNativeSplash = useCallback(() => { SplashScreen.hideAsync().catch(() => {}); }, []);
   const [loaded, error] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -62,23 +69,18 @@ export default function RootLayout() {
     PlusJakartaSans_800ExtraBold,
   });
 
-  useEffect(() => {
-    if (loaded || error) SplashScreen.hideAsync().catch(() => {});
-  }, [loaded, error]);
-
-  if (!loaded && !error) return null;
-
   // Gesture handler's GestureDetector / ReanimatedSwipeable only work inside this root
   // view — without it they throw a render error on device.
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
+      {(loaded || error) ? <SafeAreaProvider>
         <ThemeProvider>
           <StoreProvider>
-            <Shell />
+            <Shell onReady={markReady} />
           </StoreProvider>
         </ThemeProvider>
-      </SafeAreaProvider>
+      </SafeAreaProvider> : null}
+      {showStartup ? <StartupScreen ready={appReady} onFinish={finishStartup} onLayout={hideNativeSplash} /> : null}
     </GestureHandlerRootView>
   );
 }

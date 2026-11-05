@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Image, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
-import { ArrowRight, BarChart3, ChevronLeft, ChevronRight, Trophy, Users, Zap } from 'lucide-react-native';
+import { ArrowRight, BarChart3, ChevronLeft, ChevronRight, Trophy, Zap } from 'lucide-react-native';
 import { AppText, Button, Tap } from './ui';
 import { useTheme } from '../theme';
 
@@ -159,9 +159,7 @@ export function WelcomeCarousel({
       <View style={[styles.container, { maxWidth: 640 }]}>
         <View style={styles.topBar}>
           <View style={styles.brand}>
-            <View style={[styles.brandMark, { backgroundColor: colors.primary }]}>
-              <Users size={15} color={colors.onPrimary} strokeWidth={2.6} />
-            </View>
+            <Image source={require('../../assets/images/icon.png')} style={styles.brandMark} resizeMode="contain" accessibilityLabel="Boundary logo" />
             <AppText variant="bodyStrong">BOUNDARY</AppText>
           </View>
           <Tap onPress={onComplete} accessibilityLabel="Skip welcome">
@@ -266,7 +264,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, width: '100%', paddingHorizontal: 24 },
   topBar: { height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  brandMark: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  brandMark: { width: 44, height: 44, borderRadius: 10 },
   slide: { flex: 1, justifyContent: 'center', paddingHorizontal: 0 },
   slideContent: { width: '100%', gap: 27, alignItems: 'center' },
   artwork: { width: '100%', height: 265, borderRadius: 30, overflow: 'hidden', justifyContent: 'center', alignItems: 'center' },

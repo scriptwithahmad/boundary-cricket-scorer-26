@@ -79,6 +79,8 @@ export interface Match {
   createdAt: number;
   format: Format;
   overs: number;
+  bowlerOversLimit?: number;
+  allowConsecutiveOvers?: boolean;
   teamAId: string;
   teamBId: string;
   squads: Record<string, string[]>;
@@ -100,6 +102,8 @@ export interface AppData {
 export interface NewMatchConfig {
   format: Format;
   overs: number;
+  bowlerOversLimit?: number;
+  allowConsecutiveOvers?: boolean;
   teamAId: string;
   teamBId: string;
   squadA: string[];
