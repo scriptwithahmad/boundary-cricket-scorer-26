@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { ChevronRight, Plus, Swords, Users } from 'lucide-react-native';
 import { AppText, Avatar, Button, Card, EmptyState, Field, IconButton, Screen, ScreenHeader, Sheet } from '@/src/components/ui';
 import { ColorPicker } from '@/src/components/ColorPicker';
+import { TeamBadgePicker } from '@/src/components/TeamBadgePicker';
+import type { TeamBadge } from '@/src/components/TeamBadgeIcon';
 import { useStore, makeShort } from '@/src/store';
 import { TEAM_COLORS, useTheme } from '@/src/theme';
 
@@ -15,13 +17,15 @@ export default function Teams() {
   const [name, setName] = useState('');
   const [short, setShort] = useState('');
   const [color, setColor] = useState(TEAM_COLORS[0]);
+  const [badge, setBadge] = useState<TeamBadge>('initials');
 
   const submit = () => {
     if (!name.trim()) return;
-    const t = store.addTeam(name, short || makeShort(name), color);
+    const t = store.addTeam(name, short || makeShort(name), color, badge);
     setOpen(false);
     setName('');
     setShort('');
+    setBadge('initials');
     router.push(`/team/${t.id}` as any);
   };
 
@@ -43,7 +47,7 @@ export default function Teams() {
             const count = store.players.filter((p) => p.teamId === t.id).length;
             return (
               <Card key={t.id} index={i} onPress={() => router.push(`/team/${t.id}` as any)} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                <Avatar name={t.short} color={t.color} size={52} />
+                <Avatar name={t.short} color={t.color} size={52} badge={t.badge} />
                 <View style={{ flex: 1 }}>
                   <AppText variant="heading" numberOfLines={1}>
                     {t.name}
@@ -81,6 +85,7 @@ export default function Teams() {
           </AppText>
           <ColorPicker value={color} onChange={setColor} />
         </View>
+        <TeamBadgePicker value={badge} onChange={setBadge} color={color} name={short || makeShort(name)} />
       </Sheet>
     </Screen>
   );

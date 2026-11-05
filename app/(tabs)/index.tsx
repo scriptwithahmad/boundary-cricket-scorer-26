@@ -126,7 +126,7 @@ export default function Home() {
                       {oversText(t.legal)}/{live.overs}
                     </AppText>
                   </View>
-                  <Tap onPress={() => router.push(`/match/${live.id}/score` as any)} style={styles.heroBtn}>
+                  <Tap onPress={() => router.push(`/match/${live.id}/score` as any)} style={[styles.heroBtn, styles.resumeBtn]}>
                     <Play size={18} color="#0A3A22" fill="#0A3A22" />
                     <AppText variant="bodyStrong" color="#0A3A22" style={{ fontFamily: fonts.bold }}>
                       Resume scoring
@@ -248,6 +248,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#E9F8EE',
   },
+  resumeBtn: { alignSelf: 'stretch', justifyContent: 'center' },
   format: { borderRadius: 20, borderWidth: 1, padding: 14, gap: 4 },
   formatIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
 });

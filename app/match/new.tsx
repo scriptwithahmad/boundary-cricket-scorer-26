@@ -323,7 +323,7 @@ export default function NewMatch() {
                   opacity: blocked ? 0.35 : 1,
                 }}
               >
-                <Avatar name={t.short} color={t.color} size={42} />
+                <Avatar name={t.short} color={t.color} size={42} badge={t.badge} />
                 <View style={{ flex: 1 }}>
                   <AppText variant="bodyStrong" color="text">{t.name}</AppText>
                   <AppText variant="caption" color={n < 2 ? 'danger' : 'textMuted'}>
@@ -505,7 +505,7 @@ export default function NewMatch() {
                     borderColor: on ? colors.primary : colors.border,
                   }}
                 >
-                  <Avatar name={t.short} color={t.color} size={44} />
+                  <Avatar name={t.short} color={t.color} size={44} badge={t.badge} />
                   <AppText variant="heading" style={{ flex: 1 }}>
                     {t.name}
                   </AppText>
@@ -631,7 +631,7 @@ export default function NewMatch() {
                       borderColor: selected ? colors.primary : 'transparent',
                     }}
                   >
-                    <Avatar name={team.short} color={team.color} size={38} />
+                    <Avatar name={team.short} color={team.color} size={38} badge={team.badge} />
                     <AppText variant="bodyStrong" style={{ flex: 1 }}>{team.name}</AppText>
                     {selected ? <Check size={18} color={colors.primary} strokeWidth={2.8} /> : null}
                   </Tap>

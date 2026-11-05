@@ -399,8 +399,8 @@ export function createMatch(cfg: NewMatchConfig, teams: Team[], players: Player[
     teamBId: tB.id,
     squads: { [tA.id]: cfg.squadA, [tB.id]: cfg.squadB },
     teams: {
-      [tA.id]: { name: tA.name, short: tA.short, color: tA.color },
-      [tB.id]: { name: tB.name, short: tB.short, color: tB.color },
+      [tA.id]: { name: tA.name, short: tA.short, color: tA.color, badge: tA.badge },
+      [tB.id]: { name: tB.name, short: tB.short, color: tB.color, badge: tB.badge },
     },
     players: snapPlayers,
     tossWinnerId: cfg.tossWinnerId,

@@ -41,7 +41,7 @@ export function MatchCard({ match, index }: { match: Match; index?: number }) {
         const lost = !live && winner !== undefined && winner !== null && winner !== id;
         return (
           <View key={id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, opacity: lost ? 0.6 : 1 }}>
-            <Avatar name={t.short} color={t.color} size={36} />
+            <Avatar name={t.short} color={t.color} size={36} badge={t.badge} />
             <AppText variant="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>
               {t.name}
             </AppText>

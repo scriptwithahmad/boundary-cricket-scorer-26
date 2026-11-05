@@ -34,6 +34,7 @@ import { ChevronLeft, X } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { fonts, Palette, radius, useTheme } from '../theme';
 import { haptic } from '../lib/haptics';
+import { TeamBadgeIcon } from './TeamBadgeIcon';
 
 export const MAX_W = 640;
 
@@ -445,7 +446,7 @@ export function LiveDot() {
   return <Animated.View style={[{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.danger }, a]} />;
 }
 
-export function Avatar({ name, color, size = 44 }: { name: string; color?: string; size?: number }) {
+export function Avatar({ name, color, size = 44, badge }: { name: string; color?: string; size?: number; badge?: string }) {
   const { colors } = useTheme();
   const initials = name
     .trim()
@@ -465,7 +466,7 @@ export function Avatar({ name, color, size = 44 }: { name: string; color?: strin
         justifyContent: 'center',
       }}
     >
-      <Text style={{ fontFamily: fonts.extrabold, fontSize: size * 0.36, color: color ? '#08130D' : colors.primary }}>{initials}</Text>
+      {badge && badge !== 'initials' ? <TeamBadgeIcon badge={badge} size={size * 0.62} color={color ? '#08130D' : colors.primary} /> : <Text style={{ fontFamily: fonts.extrabold, fontSize: size * 0.36, color: color ? '#08130D' : colors.primary }}>{initials}</Text>}
     </View>
   );
 }

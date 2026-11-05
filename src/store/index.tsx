@@ -34,11 +34,11 @@ interface StoreApi extends AppData {
   hapticVibration: boolean;
   setKeepScreenAwake: (enabled: boolean) => void;
   setHapticVibration: (enabled: boolean) => void;
-  addTeam: (name: string, short: string, color: string) => Team;
-  updateTeam: (id: string, patch: Partial<Pick<Team, 'name' | 'short' | 'color'>>) => void;
+  addTeam: (name: string, short: string, color: string, badge?: Team['badge']) => Team;
+  updateTeam: (id: string, patch: Partial<Pick<Team, 'name' | 'short' | 'color' | 'badge'>>) => void;
   deleteTeam: (id: string) => void;
-  addPlayer: (teamId: string, name: string, role: Role) => void;
-  updatePlayer: (id: string, patch: Partial<Pick<Player, 'name' | 'role'>>) => void;
+  addPlayer: (teamId: string, name: string, role: Role, photoUri?: string) => void;
+  updatePlayer: (id: string, patch: Partial<Pick<Player, 'name' | 'role' | 'photoUri'>>) => void;
   deletePlayer: (id: string) => void;
   seedDemo: () => void;
   createMatch: (cfg: NewMatchConfig) => string;
@@ -170,8 +170,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ...preferences,
       setKeepScreenAwake: (enabled) => setPreferences((current) => ({ ...current, keepScreenAwake: enabled })),
       setHapticVibration: (enabled) => setPreferences((current) => ({ ...current, hapticVibration: enabled })),
-      addTeam: (name, short, color) => {
-        const team: Team = { id: uid(), name: name.trim(), short: short.trim().toUpperCase() || makeShort(name), color, createdAt: Date.now() };
+      addTeam: (name, short, color, badge) => {
+        const team: Team = { id: uid(), name: name.trim(), short: short.trim().toUpperCase() || makeShort(name), color, badge, createdAt: Date.now() };
         setData((d) => ({ ...d, teams: [...d.teams, team] }));
         return team;
       },

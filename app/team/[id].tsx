@@ -20,6 +20,8 @@ import {
   Sheet,
 } from '@/src/components/ui';
 import { ColorPicker } from '@/src/components/ColorPicker';
+import { TeamBadgePicker } from '@/src/components/TeamBadgePicker';
+import type { TeamBadge } from '@/src/components/TeamBadgeIcon';
 import { useStore, makeShort } from '@/src/store';
 import { ROLES, Role } from '@/src/types';
 import { useTheme } from '@/src/theme';
@@ -42,6 +44,7 @@ export default function TeamDetail() {
   const [tName, setTName] = useState('');
   const [tShort, setTShort] = useState('');
   const [tColor, setTColor] = useState('');
+  const [tBadge, setTBadge] = useState<TeamBadge>('initials');
   const [confirmTeam, setConfirmTeam] = useState(false);
   const [confirmPlayer, setConfirmPlayer] = useState(false);
 
@@ -83,6 +86,7 @@ export default function TeamDetail() {
     setTName(team.name);
     setTShort(team.short);
     setTColor(team.color);
+    setTBadge(team.badge ?? 'initials');
     setTeamOpen(true);
   };
 
@@ -96,7 +100,7 @@ export default function TeamDetail() {
       />
 
       <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-        <Avatar name={team.short} color={team.color} size={64} />
+        <Avatar name={team.short} color={team.color} size={64} badge={team.badge} />
         <View style={{ flex: 1, gap: 4 }}>
           <AppText variant="heading">{team.name}</AppText>
           <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -182,7 +186,7 @@ export default function TeamDetail() {
             label="Save changes"
             disabled={!tName.trim()}
             onPress={() => {
-              store.updateTeam(team.id, { name: tName.trim(), short: (tShort || makeShort(tName)).toUpperCase(), color: tColor });
+              store.updateTeam(team.id, { name: tName.trim(), short: (tShort || makeShort(tName)).toUpperCase(), color: tColor, badge: tBadge });
               setTeamOpen(false);
             }}
           />
@@ -196,6 +200,7 @@ export default function TeamDetail() {
           </AppText>
           <ColorPicker value={tColor} onChange={setTColor} />
         </View>
+        <TeamBadgePicker value={tBadge} onChange={setTBadge} color={tColor} name={tShort || makeShort(tName)} />
       </Sheet>
 
       <ConfirmSheet

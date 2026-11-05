@@ -2,6 +2,7 @@ export type Role = 'Batter' | 'Bowler' | 'All-rounder' | 'Keeper';
 export const ROLES: Role[] = ['Batter', 'Bowler', 'All-rounder', 'Keeper'];
 
 export interface Team {
+  badge?: import('./components/TeamBadgeIcon').TeamBadge;
   id: string;
   name: string;
   short: string;
@@ -10,6 +11,7 @@ export interface Team {
 }
 
 export interface Player {
+  photoUri?: string;
   id: string;
   teamId: string;
   name: string;
@@ -57,12 +59,14 @@ export interface Innings extends CreaseState {
 }
 
 export interface TeamSnap {
+  badge?: import('./components/TeamBadgeIcon').TeamBadge;
   name: string;
   short: string;
   color: string;
 }
 
 export interface PlayerSnap {
+  photoUri?: string;
   name: string;
   teamId: string;
   role: Role;
