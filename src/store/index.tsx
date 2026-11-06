@@ -24,16 +24,19 @@ const PREFERENCES_KEY = 'boundary:preferences:v1';
 interface AppPreferences {
   keepScreenAwake: boolean;
   hapticVibration: boolean;
+  playSound: boolean;
 }
 
-const defaultPreferences: AppPreferences = { keepScreenAwake: false, hapticVibration: true };
+const defaultPreferences: AppPreferences = { keepScreenAwake: true, hapticVibration: true, playSound: false };
 
 interface StoreApi extends AppData {
   careers: Record<string, Career>;
   keepScreenAwake: boolean;
   hapticVibration: boolean;
+  playSound: boolean;
   setKeepScreenAwake: (enabled: boolean) => void;
   setHapticVibration: (enabled: boolean) => void;
+  setPlaySound: (enabled: boolean) => void;
   addTeam: (name: string, short: string, color: string, badge?: Team['badge']) => Team;
   updateTeam: (id: string, patch: Partial<Pick<Team, 'name' | 'short' | 'color' | 'badge'>>) => void;
   deleteTeam: (id: string) => void;
@@ -137,8 +140,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (typeof parsed !== 'object' || parsed === null) return;
           const saved = parsed as Partial<AppPreferences>;
           setPreferences({
-            keepScreenAwake: typeof saved.keepScreenAwake === 'boolean' ? saved.keepScreenAwake : false,
+            keepScreenAwake: typeof saved.keepScreenAwake === 'boolean' ? saved.keepScreenAwake : defaultPreferences.keepScreenAwake,
             hapticVibration: typeof saved.hapticVibration === 'boolean' ? saved.hapticVibration : true,
+            playSound: typeof saved.playSound === 'boolean' ? saved.playSound : defaultPreferences.playSound,
           });
         } catch {}
       })
@@ -170,6 +174,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ...preferences,
       setKeepScreenAwake: (enabled) => setPreferences((current) => ({ ...current, keepScreenAwake: enabled })),
       setHapticVibration: (enabled) => setPreferences((current) => ({ ...current, hapticVibration: enabled })),
+      setPlaySound: (enabled) => setPreferences((current) => ({ ...current, playSound: enabled })),
       addTeam: (name, short, color, badge) => {
         const team: Team = { id: uid(), name: name.trim(), short: short.trim().toUpperCase() || makeShort(name), color, badge, createdAt: Date.now() };
         setData((d) => ({ ...d, teams: [...d.teams, team] }));

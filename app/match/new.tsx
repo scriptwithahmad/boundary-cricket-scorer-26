@@ -353,7 +353,7 @@ export default function NewMatch() {
           {step < 3 ? (
             <Button label="Continue" disabled={!canNext} style={{ flex: 2 }} full={false} onPress={() => setStep(step + 1)} />
           ) : (
-            <Button label="Start match" variant="accent" style={{ flex: 2 }} full={false} onPress={start} />
+            <Button label="Start match" variant="primary" style={{ flex: 2 }} full={false} onPress={start} />
           )}
         </View>
       }

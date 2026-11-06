@@ -1,6 +1,7 @@
 import React, { ReactNode, useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  LayoutChangeEvent,
   Modal,
   Platform,
   Pressable,
@@ -124,6 +125,7 @@ export function Screen({
   edges = ['top'],
   footer,
   contentStyle,
+  onLayout,
 }: {
   children: ReactNode;
   scroll?: boolean;
@@ -131,12 +133,14 @@ export function Screen({
   edges?: ('top' | 'bottom')[];
   footer?: ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
+  onLayout?: (event: LayoutChangeEvent) => void;
 }) {
   const { colors } = useTheme();
   return (
     <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: colors.bg }}>
       {scroll ? (
         <ScrollView
+          onLayout={onLayout}
           style={{ flex: 1 }}
           contentContainerStyle={[styles.scrollContent, fillContent && { flexGrow: 1 }, contentStyle]}
           showsVerticalScrollIndicator={false}
@@ -145,7 +149,7 @@ export function Screen({
           <View style={[styles.maxWidth, fillContent && { flexGrow: 1 }]}>{children}</View>
         </ScrollView>
       ) : (
-        <View style={[{ flex: 1 }, styles.scrollContent, contentStyle]}>
+        <View onLayout={onLayout} style={[{ flex: 1 }, styles.scrollContent, contentStyle]}>
           <View style={[styles.maxWidth, { flex: 1 }]}>{children}</View>
         </View>
       )}

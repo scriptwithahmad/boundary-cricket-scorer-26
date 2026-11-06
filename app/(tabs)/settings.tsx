@@ -372,6 +372,21 @@ export default function SettingsScreen() {
             colors={colors}
           />
         </View>
+        <View style={[styles.preferenceDivider, { backgroundColor: colors.border }]} />
+        <View style={styles.preferenceRow}>
+          <View style={styles.preferenceCopy}>
+            <AppText variant="bodyStrong">Play Sound</AppText>
+            <AppText variant="caption" color="textMuted">
+              Speaks score updates as you record deliveries.
+            </AppText>
+          </View>
+          <IOSSwitch
+            value={store.playSound}
+            onValueChange={store.setPlaySound}
+            label="Play Sound"
+            colors={colors}
+          />
+        </View>
       </Card>
 
       <SectionHeader title="Data" />

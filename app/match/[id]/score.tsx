@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { AppState, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { ArrowLeftRight, ClipboardList, Flag, MoreHorizontal, MoreVertical, Swords, Trophy, Undo2, UserPlus } from 'lucide-react-native';
 import {
@@ -40,6 +41,7 @@ import {
 } from '@/src/engine/cricket';
 import type { Ball, ExtraType, WicketKind } from '@/src/types';
 import { haptic } from '@/src/lib/haptics';
+import { useScoringSpeech } from '@/src/lib/useScoringSpeech';
 import { MatchAwards } from '@/src/components/MatchAwards';
 import { MatchInsightsSheet } from '@/src/components/MatchInsightsSheet';
 
@@ -131,13 +133,20 @@ const cols = StyleSheet.create({
 
 export default function ScoreScreen() {
   const { height: viewportHeight } = useWindowDimensions();
-  const compact = viewportHeight < 800;
+  const insets = useSafeAreaInsets();
+  const [availableHeight, setAvailableHeight] = useState<number | null>(null);
+  // Window dimensions can include system bars in standalone edge-to-edge builds.
+  // Measure the actual safe-area viewport so Expo Go and release use the same budget.
+  // The spacious cards and keypad together need about 850dp, plus chase/hint text.
+  const compact = (availableHeight ?? viewportHeight - insets.top - insets.bottom) < 900;
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colors } = useTheme();
   const store = useStore();
   const [isFocused, setIsFocused] = useState(false);
+  const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const match = store.matches.find((m) => m.id === id);
+  useScoringSpeech(match, store.playSound && isFocused && appActive);
   const inn = match ? currentInnings(match) : undefined;
   const t = inn ? totals(inn) : undefined;
   const need = match ? needOf(match) : null;
@@ -165,6 +174,11 @@ export default function ScoreScreen() {
       return () => setIsFocused(false);
     }, []),
   );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => setAppActive(state === 'active'));
+    return () => subscription.remove();
+  }, []);
 
   const pop = useScorePop(t?.runs ?? 0);
 
@@ -329,9 +343,10 @@ export default function ScoreScreen() {
     <Screen
       edges={['top', 'bottom']}
       fillContent
+      onLayout={({ nativeEvent }) => setAvailableHeight(nativeEvent.layout.height)}
       contentStyle={{ paddingBottom: compact ? 10 : 24 }}
     >
-      {store.keepScreenAwake && live && isFocused ? <ScoringKeepAwake /> : null}
+      {store.keepScreenAwake && live && isFocused && appActive ? <ScoringKeepAwake /> : null}
       <ScreenHeader
         title={`${m.teams[m.teamAId].short} v ${m.teams[m.teamBId].short}`}
         subtitle={`${m.format === 'Custom' ? `${m.overs} overs` : m.format} · ${inningsNo === 1 ? '1st' : '2nd'} innings`}
@@ -546,7 +561,7 @@ export default function ScoreScreen() {
             <AppText variant="body" color="textMuted">
               {bowlTeam.name} need {t.runs + 1} to win from {m.overs} overs.
             </AppText>
-            <Button label="Start 2nd innings" variant="accent" onPress={() => store.nextInnings(m.id)} />
+            <Button label="Start 2nd innings" variant="primary" onPress={() => store.nextInnings(m.id)} />
             <Button label="Undo last ball" variant="secondary" icon={Undo2} onPress={() => store.undo(m.id)} />
           </Card>
         ) : need ? (
@@ -557,7 +572,7 @@ export default function ScoreScreen() {
             <Button
               label={need === 'bowler' ? 'Select bowler' : 'Select batter'}
               icon={UserPlus}
-              onPress={() => setPickerOpen(true)}
+              onPress={() => openPlayerPicker(need)}
             />
             <Button label="Undo last ball" variant="secondary" icon={Undo2} disabled={!inn.balls.length} onPress={() => store.undo(m.id)} />
           </Card>

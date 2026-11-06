@@ -2528,6 +2528,11 @@ expo-server@^58.0.6:
   resolved "https://registry.npmjs.org/expo-server/-/expo-server-58.0.6.tgz"
   integrity sha512-6DBlSZwxk3J0y1j2s4XebAWNiwGaMp32NcWX7b2kJC2+EFf1g+pCcVmx8ylawt2tyLmbDHswm4MHOfrd4bqfvA==
 
+expo-speech@~58.0.3:
+  version "58.0.3"
+  resolved "https://registry.npmjs.org/expo-speech/-/expo-speech-58.0.3.tgz"
+  integrity sha512-jdMTqWL6ciDM8aVJe2/l2g6GTVaK7i/zBOVUhTq+l0Y+DOCz3Nh4HqNrMwmIKzXrlsxRv3ejmjSQPlX1lfOTOA==
+
 expo-splash-screen@~58.0.13:
   version "58.0.13"
   resolved "https://registry.npmjs.org/expo-splash-screen/-/expo-splash-screen-58.0.13.tgz"
