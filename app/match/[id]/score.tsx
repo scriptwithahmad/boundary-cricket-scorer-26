@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
-import { ArrowLeftRight, ClipboardList, Flag, MoreHorizontal, Swords, Trophy, Undo2, UserPlus } from 'lucide-react-native';
+import { ArrowLeftRight, ClipboardList, Flag, MoreHorizontal, MoreVertical, Swords, Trophy, Undo2, UserPlus } from 'lucide-react-native';
 import {
   AppText,
   Button,
@@ -26,6 +26,7 @@ import {
   battingCard,
   bowlerOverLimit,
   bowlingCard,
+  bowlerCreditedWicket,
   currentInnings,
   economy,
   lastOverBalls,
@@ -43,6 +44,8 @@ import { MatchAwards } from '@/src/components/MatchAwards';
 import { MatchInsightsSheet } from '@/src/components/MatchInsightsSheet';
 
 const ALL_KINDS: WicketKind[] = ['bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket'];
+const RARE_KINDS = ['timedout', 'hittwice', 'retiredout', 'obstructing'] as const;
+type RareKind = typeof RARE_KINDS[number];
 
 function ScoringKeepAwake() {
   useKeepAwake('live-match-scoring', { suppressDeactivateWarnings: true });
@@ -59,7 +62,7 @@ function BallChip({ b }: { b: Ball }) {
     bg = colors.danger;
     fg = colors.onDanger;
   } else if (b.extra === 'wd') {
-    label = b.extraRuns > 1 ? `Wd${b.extraRuns - 1}` : 'Wd';
+    label = b.extraRuns > 1 ? `${b.extraRuns - 1}WD` : 'WD';
     bg = colors.accentSoft;
     fg = colors.accent;
   } else if (b.extra === 'nb') {
@@ -141,6 +144,11 @@ export default function ScoreScreen() {
 
   const [extra, setExtra] = useState<ExtraType | null>(null);
   const [wicketOpen, setWicketOpen] = useState(false);
+  const [rareOpen, setRareOpen] = useState(false);
+  const [rareKind, setRareKind] = useState<RareKind | null>(null);
+  const [rareOut, setRareOut] = useState<string | null>(null);
+  const [rareRuns, setRareRuns] = useState(0);
+  const [rareExtra, setRareExtra] = useState<ExtraType | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<'striker' | 'nonStriker' | 'bowler' | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
@@ -186,7 +194,7 @@ export default function ScoreScreen() {
   const name = (pid: string | null) => (pid ? m.players[pid]?.name ?? 'Player' : '—');
   const hasPlayedBall = (playerId: string) =>
     inn.balls.some((ball) => ball.batterId === playerId || ball.nonStrikerId === playerId);
-  const currentOverStarted = inn.balls.some((ball) => ball.over === Math.floor(t.legal / 6));
+  const currentOverStarted = inn.balls.some((ball) => !ball.noDelivery && ball.over === Math.floor(t.legal / 6));
   const canChangeBowler = m.status === 'live' && inn.status === 'live' && !!inn.bowler && !currentOverStarted;
   const openPlayerPicker = (target: 'striker' | 'nonStriker' | 'bowler') => {
     setPickerTarget(target);
@@ -227,10 +235,11 @@ export default function ScoreScreen() {
   };
   const confirmWicket = () => {
     if (!wKind) return;
-    const creditedWicket = wKind !== 'runout';
+    const creditedWicket = bowlerCreditedWicket(wKind);
     let previousWickets = 0;
     for (const ball of inn.balls.slice().reverse()) {
-      if (ball.bowlerId !== inn.bowler || !ball.wicket || ball.wicket.kind === 'runout') break;
+      if (ball.noDelivery) continue;
+      if (ball.bowlerId !== inn.bowler || !ball.wicket || !bowlerCreditedWicket(ball.wicket.kind)) break;
       previousWickets++;
       if (previousWickets === 2) break;
     }
@@ -265,6 +274,29 @@ export default function ScoreScreen() {
   const bowlers = m.squads[inn.bowlingTeamId] ?? [];
   const pickerBatters = eligibleBatters.filter((pid) => pid !== inn.striker && pid !== inn.nonStriker);
   const pickerBowlers = bowlers.filter((pid) => pid !== inn.bowler);
+  const openRare = () => {
+    setRareKind(null);
+    setRareOut(null);
+    setRareRuns(0);
+    setRareExtra(extra);
+    setPickerOpen(false);
+    setRareOpen(true);
+  };
+  const rareCandidates = rareKind === 'timedout' ? pickerBatters :
+    rareKind === 'hittwice' ? [inn.striker].filter((pid): pid is string => !!pid) :
+    [inn.striker, inn.nonStriker].filter((pid): pid is string => !!pid);
+  const betweenDeliveries = rareKind === 'timedout' || rareKind === 'retiredout';
+  const confirmRare = () => {
+    if (!rareKind || !rareOut || !rareCandidates.includes(rareOut)) return;
+    store.score(m.id, {
+      runs: rareKind === 'obstructing' ? rareRuns : 0,
+      extra: betweenDeliveries ? undefined : rareExtra ?? undefined,
+      wicket: { kind: rareKind, playerOutId: rareOut },
+    });
+    if (store.hapticVibration) haptic.warning();
+    setExtra(null);
+    setRareOpen(false);
+  };
   const closePlayerPicker = () => {
     setPickerOpen(false);
     setPickerTarget(null);
@@ -446,9 +478,10 @@ export default function ScoreScreen() {
               </AppText>
             )}
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
+          <View style={{ alignItems: 'flex-end', marginLeft: 12 }} accessibilityLabel={`${bowlerStat?.runs ?? 0} runs conceded, ${bowlerStat?.wickets ?? 0} wickets, ${oversText(bowlerStat?.balls ?? 0)} overs`}>
             <AppText variant="bodyStrong" style={{ fontVariant: ['tabular-nums'] }}>
-              {oversText(bowlerStat?.balls ?? 0)}-{bowlerStat?.maidens ?? 0}-{bowlerStat?.runs ?? 0}-{bowlerStat?.wickets ?? 0}
+              {bowlerStat?.runs ?? 0}/{bowlerStat?.wickets ?? 0}{' '}
+              <AppText variant="caption" color="textMuted">({oversText(bowlerStat?.balls ?? 0)})</AppText>
             </AppText>
             <AppText variant="caption" color="textMuted" style={{ fontVariant: ['tabular-nums'] }}>
               Econ {economy(bowlerStat?.runs ?? 0, bowlerStat?.balls ?? 0)}
@@ -530,16 +563,19 @@ export default function ScoreScreen() {
           </Card>
         ) : (
           <>
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {extrasOptions.map((e) => (
-                <Chip key={e.k} label={e.label} selected={extra === e.k} onPress={() => setExtra(extra === e.k ? null : e.k)} />
-              ))}
-            </View>
             {extra ? (
               <AppText variant="caption" color="accent">
                 {hint[extra]}
               </AppText>
             ) : null}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              {extrasOptions.map((e) => (
+                <Tap key={e.k} accessibilityRole="button" accessibilityLabel={e.label} accessibilityState={{ selected: extra === e.k }} onPress={() => setExtra(extra === e.k ? null : e.k)} style={{ flexGrow: 1, flexBasis: 'auto', paddingHorizontal: 12, height: 40, borderRadius: 20, backgroundColor: extra === e.k ? colors.primarySoft : colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
+                  <AppText variant="caption" style={{ color: extra === e.k ? colors.primary : colors.textMuted }}>{e.label}</AppText>
+                </Tap>
+              ))}
+              <IconButton icon={MoreVertical} label="Rare dismissals" size={40} onPress={openRare} />
+            </View>
             <View style={{ flexDirection: 'row', gap: 10 }}>
               {[0, 1, 2, 3].map((r) => (
                 <RunButton key={r} compact={compact} value={r} onPress={() => onRun(r)} hapticEnabled={store.hapticVibration} />
@@ -606,6 +642,7 @@ export default function ScoreScreen() {
             ? `${bowlTeam.name} · max ${limit} over${limit === 1 ? '' : 's'} each${inn.lastOverBowler && !m.allowConsecutiveOvers ? ' · last over’s bowler is resting' : ''}`
             : `${batTeam.name} · next in`
         }
+        footer={pickerTarget !== 'bowler' && inn.balls.some((ball) => ball.wicket || ball.noDelivery) ? <Button label="Record a timed out dismissal" variant="secondary" onPress={openRare} /> : undefined}
       >
         <View style={{ gap: 8 }}>
           {pickerTarget === 'bowler' ? (
@@ -646,6 +683,39 @@ export default function ScoreScreen() {
       </Sheet>
 
       {/* Wicket sheet */}
+      <Sheet visible={rareOpen} onClose={() => setRareOpen(false)} title="Rare dismissals"
+        footer={<Button label="Confirm dismissal" variant="danger" disabled={!rareKind || !rareOut || !rareCandidates.includes(rareOut)} onPress={confirmRare} />}>
+        <View style={{ gap: 8 }}>
+          {RARE_KINDS.map((kind) => (
+            <Button key={kind} label={WICKET_LABEL[kind]} variant={rareKind === kind ? 'soft' : 'secondary'}
+              disabled={kind === 'timedout' ? !pickerBatters.length || (!!inn.striker && !!inn.nonStriker) : kind === 'retiredout' ? !inn.striker && !inn.nonStriker : !!need}
+              onPress={() => {
+                setRareKind(kind);
+                setRareOut(kind === 'hittwice' ? inn.striker : null);
+                setRareRuns(0);
+                if (kind === 'hittwice' && rareExtra !== 'nb') setRareExtra(null);
+              }} />
+          ))}
+        </View>
+        {rareKind ? <>
+          <AppText variant="caption" color="textMuted">{betweenDeliveries ? 'Recorded without adding a delivery.' : 'Records this delivery and the dismissal.'} No wicket is credited to the bowler.</AppText>
+          <AppText variant="label" color="textMuted">{rareKind === 'timedout' ? 'Incoming batter who is out' : 'Who is out'}</AppText>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {rareCandidates.map((pid) => <Chip key={pid} label={name(pid)} selected={rareOut === pid} onPress={() => setRareOut(pid)} />)}
+          </View>
+          {!betweenDeliveries ? <>
+            <AppText variant="label" color="textMuted">Delivery</AppText>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              <Chip label="Normal" selected={!rareExtra} onPress={() => setRareExtra(null)} />
+              {extrasOptions.filter((option) => rareKind === 'obstructing' || option.k === 'nb').map((option) => <Chip key={option.k} label={option.label} selected={rareExtra === option.k} onPress={() => setRareExtra(option.k)} />)}
+            </View>
+          </> : null}
+          {rareKind === 'obstructing' ? <>
+            <AppText variant="label" color="textMuted">Runs awarded by umpire</AppText>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{[0, 1, 2, 3, 4, 5, 6].map((runs) => <Chip key={runs} label={String(runs)} selected={rareRuns === runs} onPress={() => setRareRuns(runs)} />)}</View>
+          </> : null}
+        </> : null}
+      </Sheet>
       <Sheet
         visible={wicketOpen}
         onClose={() => setWicketOpen(false)}

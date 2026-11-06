@@ -373,7 +373,9 @@ export function MatchInsightsSheet({
                       </View>
                       {over.balls.map((ball) => {
                         let label: string;
-                        if (ball.legal) {
+                        if (ball.noDelivery) {
+                          label = '—';
+                        } else if (ball.legal) {
                           legalBall++;
                           label = `${over.over + 1}.${legalBall}`;
                         } else {
@@ -387,7 +389,7 @@ export function MatchInsightsSheet({
                             <View style={{ flex: 1 }}>
                               <AppText variant="bodyStrong">{deliveryDescription(ball)}</AppText>
                               <AppText variant="caption" color="textMuted" numberOfLines={1}>
-                                {match.players[ball.batterId]?.name ?? 'Batter'} · {match.players[ball.bowlerId]?.name ?? 'Bowler'}
+                                {ball.noDelivery ? `${match.players[ball.wicket?.playerOutId ?? '']?.name ?? 'Batter'} · between deliveries` : `${match.players[ball.batterId]?.name ?? 'Batter'} · ${match.players[ball.bowlerId]?.name ?? 'Bowler'}`}
                               </AppText>
                             </View>
                           </View>

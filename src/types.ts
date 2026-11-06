@@ -20,7 +20,7 @@ export interface Player {
 
 export type Format = 'T20' | 'ODI' | 'Custom';
 export type ExtraType = 'wd' | 'nb' | 'b' | 'lb';
-export type WicketKind = 'bowled' | 'caught' | 'lbw' | 'runout' | 'stumped' | 'hitwicket';
+export type WicketKind = 'bowled' | 'caught' | 'lbw' | 'runout' | 'stumped' | 'hitwicket' | 'timedout' | 'hittwice' | 'retiredout' | 'obstructing';
 
 export interface Wicket {
   kind: WicketKind;
@@ -45,6 +45,7 @@ export interface Ball {
   extra?: ExtraType;
   extraRuns: number; // runs credited as extras on this delivery
   legal: boolean;
+  noDelivery?: boolean; // dismissal recorded between deliveries
   wicket?: Wicket;
   prev: CreaseState;
 }

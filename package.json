@@ -4,10 +4,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "expo start --go --lan",
-    "dev": "expo start --go --lan",
-    "dev:clear": "expo start --go --lan --clear",
-    "dev:tunnel": "expo start --go --tunnel",
+    "start": "expo start --go --tunnel ngrok",
+    "dev": "expo start --go --tunnel ngrok",
+    "dev:clear": "expo start --go --tunnel ngrok --clear",
+    "dev:tunnel": "expo start --go --tunnel ngrok",
+    "dev:lan": "expo start --go --lan",
     "build": "expo start --lan",
     "build:web": "expo export --platform web",
     "lint": "expo lint",
@@ -51,6 +52,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
+    "@expo/ngrok": "^4.1.0",
     "@types/react": "~19.3.0",
     "typescript": "~6.0.3"
   }

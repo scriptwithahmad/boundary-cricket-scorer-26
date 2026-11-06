@@ -3,8 +3,7 @@ import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronRight, Plus, Swords, Users } from 'lucide-react-native';
 import { AppText, Avatar, Button, Card, EmptyState, Field, IconButton, Screen, ScreenHeader, Sheet } from '@/src/components/ui';
-import { ColorPicker } from '@/src/components/ColorPicker';
-import { TeamBadgePicker } from '@/src/components/TeamBadgePicker';
+import { TeamAppearancePicker } from '@/src/components/TeamAppearancePicker';
 import type { TeamBadge } from '@/src/components/TeamBadgeIcon';
 import { useStore, makeShort } from '@/src/store';
 import { TEAM_COLORS, useTheme } from '@/src/theme';
@@ -79,13 +78,7 @@ export default function Teams() {
           autoCapitalize="characters"
           maxLength={3}
         />
-        <View style={{ gap: 8 }}>
-          <AppText variant="label" color="textMuted">
-            Team colour
-          </AppText>
-          <ColorPicker value={color} onChange={setColor} />
-        </View>
-        <TeamBadgePicker value={badge} onChange={setBadge} color={color} name={short || makeShort(name)} />
+        <TeamAppearancePicker key={String(open)} color={color} onColorChange={setColor} badge={badge} onBadgeChange={setBadge} name={short || makeShort(name)} />
       </Sheet>
     </Screen>
   );

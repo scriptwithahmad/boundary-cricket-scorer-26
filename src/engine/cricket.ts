@@ -17,6 +17,8 @@ export const oversText = (legalBalls: number) => `${Math.floor(legalBalls / 6)}.
 
 /* ---------- per-ball helpers ---------- */
 export const ballRuns = (b: Ball) => b.runs + b.extraRuns;
+export const bowlerCreditedWicket = (kind: WicketKind) =>
+  ['bowled', 'caught', 'lbw', 'stumped', 'hitwicket'].includes(kind);
 
 /** Runs the batters physically ran (drives strike rotation). */
 export const runsRan = (b: Ball) => {
@@ -57,6 +59,7 @@ export function battingOrder(inn: Innings): string[] {
   for (const b of inn.balls) {
     add(b.batterId);
     add(b.nonStrikerId);
+    if (b.wicket) add(b.wicket.playerOutId);
   }
   add(inn.striker);
   add(inn.nonStriker);
@@ -77,7 +80,7 @@ export function battingCard(inn: Innings): BatStat[] {
   for (const id of battingOrder(inn)) map.set(id, { id, runs: 0, balls: 0, fours: 0, sixes: 0, out: null });
   for (const b of inn.balls) {
     const s = map.get(b.batterId)!;
-    if (b.extra !== 'wd') s.balls++;
+    if (!b.noDelivery && b.extra !== 'wd') s.balls++;
     s.runs += b.runs;
     if (b.runs === 4) s.fours++;
     if (b.runs === 6) s.sixes++;
@@ -103,6 +106,7 @@ export function bowlingCard(inn: Innings): BowlStat[] {
   const map = new Map<string, BowlStat>();
   const overs = new Map<number, { bowler: string; legal: number; runs: number }>();
   for (const b of inn.balls) {
+    if (b.noDelivery) continue;
     let s = map.get(b.bowlerId);
     if (!s) {
       s = { id: b.bowlerId, balls: 0, runs: 0, wickets: 0, maidens: 0, wides: 0, noBalls: 0 };
@@ -112,7 +116,7 @@ export function bowlingCard(inn: Innings): BowlStat[] {
     s.runs += bowlerRuns(b);
     if (b.extra === 'wd') s.wides += 1;
     if (b.extra === 'nb') s.noBalls += 1;
-    if (b.wicket && b.wicket.kind !== 'runout') s.wickets++;
+    if (b.wicket && bowlerCreditedWicket(b.wicket.kind)) s.wickets++;
     const o = overs.get(b.over) ?? { bowler: b.bowlerId, legal: 0, runs: 0 };
     if (b.legal) o.legal++;
     o.runs += bowlerRuns(b);
@@ -285,6 +289,10 @@ export function dismissalText(m: Match, stat: BatStat): string {
       return `st ${name(stat.out.fielderId)} b ${bowler}`;
     case 'runout':
       return stat.out.fielderId ? `run out (${name(stat.out.fielderId)})` : 'run out';
+    case 'timedout': return 'timed out';
+    case 'hittwice': return 'hit the ball twice';
+    case 'retiredout': return 'retired out';
+    case 'obstructing': return 'obstructing the field';
   }
 }
 
@@ -295,6 +303,10 @@ export const WICKET_LABEL: Record<WicketKind, string> = {
   runout: 'Run out',
   stumped: 'Stumped',
   hitwicket: 'Hit wicket',
+  timedout: 'Timed out',
+  hittwice: 'Hit the ball twice',
+  retiredout: 'Retired out',
+  obstructing: 'Obstructing the field',
 };
 
 /* ---------- match state ---------- */
@@ -432,12 +444,22 @@ export interface BallInput {
 
 export function applyBall(m: Match, input: BallInput): Match {
   const inn = currentInnings(m);
-  if (m.status !== 'live' || inn.status !== 'live' || !inn.striker || !inn.nonStriker || !inn.bowler) return m;
+  const noDelivery = input.wicket?.kind === 'timedout' || input.wicket?.kind === 'retiredout';
+  if (m.status !== 'live' || inn.status !== 'live') return m;
+  if (!noDelivery && (!inn.striker || !inn.nonStriker || !inn.bowler)) return m;
+  const playerOutId = input.wicket?.playerOutId ?? inn.striker;
+  if (noDelivery) {
+    if (!playerOutId || !m.squads[inn.battingTeamId]?.includes(playerOutId)) return m;
+    if (inn.balls.some((b) => b.wicket?.playerOutId === playerOutId)) return m;
+    if (input.wicket?.kind === 'retiredout' && playerOutId !== inn.striker && playerOutId !== inn.nonStriker) return m;
+    if (input.wicket?.kind === 'timedout' && battingOrder(inn).includes(playerOutId)) return m;
+    if (input.wicket?.kind === 'timedout' && inn.striker && inn.nonStriker) return m;
+  }
   const t = totals(inn);
-  const legal = input.extra !== 'wd' && input.extra !== 'nb';
+  const legal = !noDelivery && input.extra !== 'wd' && input.extra !== 'nb';
   let runs = 0;
   let extraRuns = 0;
-  switch (input.extra) {
+  switch (noDelivery ? undefined : input.extra) {
     case 'wd':
       extraRuns = 1 + input.runs;
       break;
@@ -450,22 +472,23 @@ export function applyBall(m: Match, input: BallInput): Match {
       extraRuns = input.runs;
       break;
     default:
-      runs = input.runs;
+      runs = noDelivery ? 0 : input.runs;
   }
   const ball: Ball = {
     id: uid(),
     over: Math.floor(t.legal / 6),
-    batterId: inn.striker,
-    nonStrikerId: inn.nonStriker,
-    bowlerId: inn.bowler,
+    batterId: inn.striker ?? playerOutId!,
+    nonStrikerId: inn.nonStriker ?? playerOutId!,
+    bowlerId: inn.bowler ?? '',
     runs,
-    extra: input.extra,
+    extra: noDelivery ? undefined : input.extra,
     extraRuns,
     legal,
+    ...(noDelivery ? { noDelivery: true } : {}),
     wicket: input.wicket
       ? {
           kind: input.wicket.kind,
-          playerOutId: input.wicket.playerOutId ?? inn.striker,
+          playerOutId: playerOutId!,
           fielderId: input.wicket.fielderId,
         }
       : undefined,

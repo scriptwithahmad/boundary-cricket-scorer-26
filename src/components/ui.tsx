@@ -12,7 +12,6 @@ import {
   TextInput,
   TextInputProps,
   TextStyle,
-  useWindowDimensions,
   View,
   ViewStyle,
 } from 'react-native';
@@ -602,10 +601,9 @@ export function Sheet({
 }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <Animated.View entering={FadeIn.duration(180)} style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]}>
           <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Close" />
         </Animated.View>
@@ -615,7 +613,7 @@ export function Sheet({
             style={{
               width: '100%',
               maxWidth: MAX_W,
-              maxHeight: height * 0.88,
+              maxHeight: '88%',
               backgroundColor: colors.surface,
               borderTopLeftRadius: 28,
               borderTopRightRadius: 28,

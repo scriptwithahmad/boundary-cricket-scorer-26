@@ -60,7 +60,7 @@ export default function RootLayout() {
   const [showStartup, setShowStartup] = useState(true);
   const markReady = useCallback(() => setAppReady(true), []);
   const finishStartup = useCallback(() => setShowStartup(false), []);
-  const hideNativeSplash = useCallback(() => { SplashScreen.hideAsync().catch(() => {}); }, []);
+  const hideNativeSplash = useCallback(() => SplashScreen.hideAsync().catch(() => {}), []);
   const [loaded, error] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
