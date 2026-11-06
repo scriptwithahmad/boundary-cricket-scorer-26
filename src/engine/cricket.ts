@@ -437,6 +437,8 @@ export function swapStrike(m: Match): Match {
 }
 
 export interface BallInput {
+  shotAngle?: number;
+  shotDistance?: number;
   runs: number;
   extra?: ExtraType;
   wicket?: { kind: WicketKind; playerOutId?: string; fielderId?: string };
@@ -475,6 +477,8 @@ export function applyBall(m: Match, input: BallInput): Match {
       runs = noDelivery ? 0 : input.runs;
   }
   const ball: Ball = {
+    ...(runs > 0 && Number.isFinite(input.shotAngle) ? { shotAngle: ((input.shotAngle! % 360) + 360) % 360 } : {}),
+    ...(runs > 0 && Number.isFinite(input.shotAngle) && Number.isFinite(input.shotDistance) ? { shotDistance: Math.max(0, Math.min(1, input.shotDistance!)) } : {}),
     id: uid(),
     over: Math.floor(t.legal / 6),
     batterId: inn.striker ?? playerOutId!,

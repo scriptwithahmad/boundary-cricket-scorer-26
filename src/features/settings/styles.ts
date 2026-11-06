@@ -1,0 +1,37 @@
+import { StyleSheet } from 'react-native';
+
+export const styles = StyleSheet.create({
+  appearance: { padding: 6, borderRadius: 18, overflow: 'hidden' },
+  appearanceIndicator: { position: 'absolute', top: 6, bottom: 6, left: 6, borderRadius: 12 },
+  appearanceTabs: { flexDirection: 'row' },
+  appearanceTab: { minWidth: 0, minHeight: 48, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 12 },
+  appearanceTabLabel: { fontSize: 13 },
+  preferencesCard: { gap: 12 },
+  preferenceRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  preferenceCopy: { flex: 1, gap: 2 },
+  preferenceDivider: { height: StyleSheet.hairlineWidth },
+  iosSwitch: {
+    width: 44,
+    height: 26,
+    padding: 2,
+    borderRadius: 13,
+    borderWidth: 1,
+    justifyContent: 'center',
+  },
+  iosSwitchThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  dataCard: { gap: 12 },
+  counts: { flexDirection: 'row', gap: 8 },
+  count: { flex: 1, minHeight: 58, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 12, gap: 1 },
+  countNumber: { fontVariant: ['tabular-nums'] },
+  dangerCard: { gap: 14 },
+  dangerCopy: { gap: 4 },
+});

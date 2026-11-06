@@ -3,6 +3,16 @@ import { useColorScheme, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
+export type ThemeColor = 'green' | 'blue' | 'purple' | 'rose' | 'orange' | 'teal';
+
+export const THEME_COLORS: { value: ThemeColor; label: string; light: string; dark: string }[] = [
+  { value: 'green', label: 'Green', light: '#12703A', dark: '#52E08C' },
+  { value: 'blue', label: 'Blue', light: '#245BC1', dark: '#80B4FF' },
+  { value: 'purple', label: 'Purple', light: '#7540B5', dark: '#C5A0FF' },
+  { value: 'rose', label: 'Rose', light: '#B42D62', dark: '#FF96BC' },
+  { value: 'orange', label: 'Orange', light: '#A74712', dark: '#FFAD72' },
+  { value: 'teal', label: 'Teal', light: '#08645F', dark: '#61DBCF' },
+];
 
 export interface Palette {
   bg: string;
@@ -57,7 +67,7 @@ export const darkColors: Palette = {
   heroA: '#14693C',
   heroB: '#0A3A22',
   onHero: '#F2FBF4',
-  onHeroMuted: '#A9D4B8',
+  onHeroMuted: '#BDE2C9',
 };
 
 export const lightColors: Palette = {
@@ -85,8 +95,40 @@ export const lightColors: Palette = {
   heroA: '#14693C',
   heroB: '#0A3A22',
   onHero: '#F2FBF4',
-  onHeroMuted: '#A9D4B8',
+  onHeroMuted: '#BDE2C9',
 };
+
+function tint(base: string, color: string, amount: number) {
+  return `#${[1, 3, 5].map((offset) => {
+    const from = parseInt(base.slice(offset, offset + 2), 16);
+    const to = parseInt(color.slice(offset, offset + 2), 16);
+    return Math.round(from + (to - from) * amount).toString(16).padStart(2, '0');
+  }).join('')}`;
+}
+
+export function createPalette(themeColor: ThemeColor, isDark: boolean): Palette {
+  const base = isDark ? darkColors : lightColors;
+  if (themeColor === 'green') return base;
+  const choice = THEME_COLORS.find((option) => option.value === themeColor) ?? THEME_COLORS[0];
+  const primary = isDark ? choice.dark : choice.light;
+  return {
+    ...base,
+    bg: tint(isDark ? '#090B10' : '#F7F5F0', primary, isDark ? 0.06 : 0.04),
+    surface: tint(isDark ? '#14161C' : '#FFFFFF', primary, isDark ? 0.07 : 0.02),
+    surfaceAlt: tint(isDark ? '#1D2028' : '#ECEAE5', primary, 0.09),
+    border: tint(isDark ? '#30343E' : '#DAD7D0', primary, 0.16),
+    text: tint(isDark ? '#F4F3F6' : '#171A21', primary, 0.04),
+    textMuted: tint(isDark ? '#ADB0BC' : '#565A64', primary, 0.08),
+    textFaint: tint(isDark ? '#8A8F9C' : '#747985', primary, 0.08),
+    primary,
+    onPrimary: isDark ? '#11131A' : '#FFFFFF',
+    primarySoft: tint(isDark ? '#161820' : '#F7F5F0', primary, isDark ? 0.16 : 0.12),
+    heroA: tint(choice.light, '#000000', 0.12),
+    heroB: tint(choice.light, '#000000', 0.48),
+    onHero: '#FFFFFF',
+    onHeroMuted: tint('#FFFFFF', choice.dark, 0.3),
+  };
+}
 
 export const fonts = {
   regular: 'PlusJakartaSans_400Regular',
@@ -104,23 +146,34 @@ interface ThemeCtx {
   isDark: boolean;
   mode: ThemeMode;
   setMode: (m: ThemeMode) => void;
+  themeColor: ThemeColor;
+  setThemeColor: (color: ThemeColor) => void;
 }
 
 const Ctx = createContext<ThemeCtx | null>(null);
 const KEY = 'boundary:theme';
+const COLOR_KEY = 'boundary:theme-color';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const system = useColorScheme();
   const [mode, setModeState] = useState<ThemeMode>('system');
+  const [themeColor, setThemeColorState] = useState<ThemeColor>('green');
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem(KEY)
-      .then((v) => {
+    AsyncStorage.multiGet([KEY, COLOR_KEY])
+      .then(([[, v], [, savedColor]]) => {
         if (v === 'light' || v === 'dark' || v === 'system') setModeState(v);
+        const choice = THEME_COLORS.find((option) => option.value === savedColor);
+        if (choice) setThemeColorState(choice.value);
       })
       .catch(() => {})
       .finally(() => setReady(true));
+  }, []);
+
+  const setThemeColor = useCallback((color: ThemeColor) => {
+    setThemeColorState(color);
+    AsyncStorage.setItem(COLOR_KEY, color).catch(() => {});
   }, []);
 
   const setMode = useCallback((m: ThemeMode) => {
@@ -130,8 +183,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const isDark = mode === 'system' ? system !== 'light' : mode === 'dark';
   const value = useMemo(
-    () => ({ colors: isDark ? darkColors : lightColors, isDark, mode, setMode }),
-    [isDark, mode, setMode],
+    () => ({ colors: createPalette(themeColor, isDark), isDark, mode, setMode, themeColor, setThemeColor }),
+    [isDark, mode, setMode, themeColor, setThemeColor],
   );
 
   if (!ready) return <View style={{ flex: 1, backgroundColor: darkColors.bg }} />;
